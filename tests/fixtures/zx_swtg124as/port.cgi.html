@@ -1,0 +1,170 @@
+<html>
+
+<head>
+<title>Port Setting</title>
+<link rel="stylesheet" type="text/css" href="/style.css">
+<script type="text/javascript">
+</script>
+</head>
+
+<body>
+<center>
+
+<fieldset>
+<legend>Port Setting</legend>
+<form method="post" action="port.cgi">
+	<table border="1">
+	<tr>
+		<th class=MidSize>Port</th>
+		<th>State</th>
+		<th>Speed/Duplex</th>
+		<th>Flow Control</th>
+	</tr>
+	<tr>
+		<td align="center">
+			<select name="portid" multiple size="4" >
+			<option value="0">Port 1
+			<option value="1">Port 2
+			<option value="2">Port 3
+			<option value="3">Port 4
+		</td>
+		<td align="center">
+			<select name="state" class=MidSize>
+			<option value="1">Enable
+			<option value="0">Disable
+			</select>
+		</td>
+		<td align="center">
+			<select name="speed_duplex" class=MidSize>
+			<option value="0">Auto
+			<option value="1">10M/Half
+			<option value="2">10M/Full
+			<option value="3">100M/Half
+			<option value="4">100M/Full
+			<option value="5">1000M/Full
+			<option value="6">2500M/Full
+			</select>
+		</td>
+		<td align="center">
+			<select name="flow" class=MidSize>
+			<option value="0">Off
+			<option value="1">On
+			</select>
+		</td>
+	</tr>
+	</table>
+<br style="line-height:50%">
+<input type="submit" name="submit" value="   Apply   ">
+<input type="hidden" name="cmd" value="port">
+</form>
+<hr>
+<form method="post" action="port.cgi">
+	<table border="1">
+	<tr>
+		<th class=MidSize>Port</th>
+		<th>State</th>
+		<th>Speed/Duplex</th>
+		<th>Flow Control</th>
+	</tr>
+	<tr>
+		<td align="center">
+			<select name="portid" multiple size="2" >
+			<option value="4">Port 5
+			<option value="5">Port 6
+		</td>
+		<td align="center">
+			<select name="state" class=MidSize>
+			<option value="1">Enable
+			<option value="0">Disable
+			</select>
+		</td>
+		<td align="center">
+			<select name="speed_duplex" class=MidSize>
+			<option value="0">Auto
+			<option value="4">100M/Full
+			<option value="5">1000M/Full
+			<option value="6">2500M/Full
+			<option value="8">10G/Full
+			</select>
+		</td>
+		<td align="center">
+			<select name="flow" class=MidSize>
+			<option value="0">Off
+			<option value="1">On
+			</select>
+		</td>
+	</tr>
+	</table>
+<br style="line-height:50%">
+<input type="submit" name="submit" value="   Apply   ">
+<input type="hidden" name="cmd" value="port">
+</form>
+<hr>
+<br>
+<table border="1">
+  <tr>
+    <th rowspan="2" width="90">Port</th>
+    <th rowspan="2" width="90">State</th>
+    <th colspan="2">Speed/Duplex</th>
+    <th colspan="2">Flow Control</th>
+  </tr>
+  <tr>
+    <th width="90">Config</th>
+    <th width="90">Actual</th>
+    <th width="90">Config</th>
+    <th width="90">Actual</th>
+  </tr>
+  <tr>
+    <td>Port 1</td>
+    <td>Enable</td>
+    <td>Auto</td>
+    <td>1000Full</td>
+    <td>Off</td>
+    <td>Off</td>
+  </tr>
+  <tr>
+    <td>Port 2</td>
+    <td>Enable</td>
+    <td>Auto</td>
+    <td>Link Down</td>
+    <td>Off</td>
+    <td>Off</td>
+  </tr>
+  <tr>
+    <td>Port 3</td>
+    <td>Enable</td>
+    <td>Auto</td>
+    <td>Link Down</td>
+    <td>Off</td>
+    <td>Off</td>
+  </tr>
+  <tr>
+    <td>Port 4</td>
+    <td>Enable</td>
+    <td>Auto</td>
+    <td>Link Down</td>
+    <td>Off</td>
+    <td>Off</td>
+  </tr>
+  <tr>
+    <td>Port 5</td>
+    <td>Enable</td>
+    <td>Auto</td>
+    <td>Link Down</td>
+    <td>Off</td>
+    <td>Off</td>
+  </tr>
+  <tr>
+    <td>Port 6</td>
+    <td>Enable</td>
+    <td>Auto</td>
+    <td>10GFull</td>
+    <td>Off</td>
+    <td>Off</td>
+  </tr>
+</table>
+<br>
+</fieldset>
+</center>
+</body>
+</html>

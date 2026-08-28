@@ -1,0 +1,55 @@
+<!--
+  SYNTHETIC fixture — not a capture from any device.
+
+  Purpose: exercise the byte-counter and error-counter capability paths in
+  parse_stats(). No confirmed device in the supported table has been observed
+  reporting byte columns, so this deliberately does NOT claim a model name.
+  It only pins the behaviour that when a header names byte columns they are
+  read, and when it does not, byte totals stay zero and has_byte_counters
+  stays False (rather than being back-filled from a packet estimate).
+-->
+<html>
+<head><title>Port Stistics</title></head>
+<body>
+<center>
+<fieldset>
+<legend>Port Statistics</legend>
+<table>
+  <tr>
+    <th>Port</th>
+    <th>State</th>
+    <th>Link Status</th>
+    <th>TxGoodPkt</th>
+    <th>TxBadPkt</th>
+    <th>RxGoodPkt</th>
+    <th>RxBadPkt</th>
+    <th>TxGoodBytes</th>
+    <th>RxGoodBytes</th>
+  </tr>
+  <tr>
+    <td>Port 1</td>
+    <td>Enable</td>
+    <td>Link Up</td>
+    <td>1000</td>
+    <td>2</td>
+    <td>2000</td>
+    <td>3</td>
+    <td>1500000</td>
+    <td>2500000</td>
+  </tr>
+  <tr>
+    <td>Port 2</td>
+    <td>Enable</td>
+    <td>Link Up</td>
+    <td>10</td>
+    <td>0</td>
+    <td>20</td>
+    <td>0</td>
+    <td>0x1E240</td>
+    <td>1-0</td>
+  </tr>
+</table>
+</fieldset>
+</center>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!--
+  Layout A reference page (HORACO HC-SWTGW218AS family).
+
+  PROVENANCE: reconstructed to the column contract published in
+  byte4geek/switch-dashboard -> device-templates/HC-SWTGW218AS.yaml
+    device_info: key_value_grid on /info.cgi table 0
+                 (Sys Uptime, MAC Address, IP Address, Firmware Version, Device Model)
+    ports:       /info.cgi table 1, columns port=0 link=1 duplex=2 speed=3 flow_control=4
+  It is NOT a capture from physical hardware. Its purpose is to pin the
+  layout-A parsing contract so layout-B support cannot regress it.
+  Addresses use the RFC 5737 documentation range.
+-->
+<html>
+<head>
+<title>System Information</title>
+<link rel="stylesheet" type="text/css" href="/style.css">
+</head>
+
+<body>
+<center>
+
+<fieldset>
+<legend>System Info</legend>
+<br>
+<table>
+  <tr>
+    <th style="width:150px;">Device Model</th>
+    <td style="width:250px;">HC-SWTGW218AS</td>
+  </tr>
+  <tr>
+    <th>MAC Address</th>
+    <td>AA:BB:CC:00:33:44</td>
+  </tr>
+  <tr>
+    <th>IP Address</th>
+    <td>192.0.2.20</td>
+  </tr>
+  <tr>
+    <th>Netmask</th>
+    <td>255.255.255.0</td>
+  </tr>
+  <tr>
+    <th>Gateway</th>
+    <td>192.0.2.1</td>
+  </tr>
+  <tr>
+    <th>Firmware Version</th>
+    <td>V1.7</td>
+  </tr>
+  <tr>
+    <th>Sys Uptime</th>
+    <td>3Day14Hour22Minute8Second</td>
+  </tr>
+</table>
+<br>
+</fieldset>
+
+<fieldset>
+<legend>Port Status</legend>
+<br>
+<table>
+  <tr>
+    <th>Port</th>
+    <th>Link</th>
+    <th>Duplex</th>
+    <th>Speed</th>
+    <th>Flow Control</th>
+  </tr>
+  <tr>
+    <td>Port 1</td>
+    <td>Link Up</td>
+    <td>Full</td>
+    <td>1000M</td>
+    <td>Disabled</td>
+  </tr>
+  <tr>
+    <td>Port 2</td>
+    <td>Link Down</td>
+    <td></td>
+    <td></td>
+    <td>Disabled</td>
+  </tr>
+  <tr>
+    <td>Port 3</td>
+    <td>Link Up</td>
+    <td>Half</td>
+    <td>100M</td>
+    <td>Enabled</td>
+  </tr>
+  <tr>
+    <td>Port 4</td>
+    <td>Link Down</td>
+    <td></td>
+    <td></td>
+    <td>Disabled</td>
+  </tr>
+  <tr>
+    <td>Port 5</td>
+    <td>Link Down</td>
+    <td></td>
+    <td></td>
+    <td>Disabled</td>
+  </tr>
+  <tr>
+    <td>Port 6</td>
+    <td>Link Down</td>
+    <td></td>
+    <td></td>
+    <td>Disabled</td>
+  </tr>
+  <tr>
+    <td>Port 7</td>
+    <td>Link Down</td>
+    <td></td>
+    <td></td>
+    <td>Disabled</td>
+  </tr>
+  <tr>
+    <td>Port 8</td>
+    <td>Link Down</td>
+    <td></td>
+    <td></td>
+    <td>Disabled</td>
+  </tr>
+  <tr>
+    <td>Port 9</td>
+    <td>Link Up</td>
+    <td>Full</td>
+    <td>10G</td>
+    <td>Disabled</td>
+  </tr>
+  <tr>
+    <td>Port 10</td>
+    <td>Link Down</td>
+    <td></td>
+    <td></td>
+    <td>Disabled</td>
+  </tr>
+</table>
+<br>
+</fieldset>
+</center>
+</body>
+</html>

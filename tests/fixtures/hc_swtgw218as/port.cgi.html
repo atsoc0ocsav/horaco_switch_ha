@@ -1,0 +1,74 @@
+<!--
+  Layout A /port.cgi — "Port List" admin-state table.
+  PROVENANCE: reconstructed to the contract used by the layout-A reader
+  (heading "Port List" followed by a Port | State table). Not a hardware capture.
+  Port 10 is administratively disabled here to exercise the disabled path.
+-->
+<html>
+<head>
+<title>Port Setting</title>
+<link rel="stylesheet" type="text/css" href="/style.css">
+</head>
+
+<body>
+<center>
+
+<fieldset>
+<legend>Port Setting</legend>
+<form method="post" action="port.cgi">
+  <table border="1">
+  <tr>
+    <th>Port</th>
+    <th>State</th>
+    <th>Speed/Duplex</th>
+    <th>Flow Control</th>
+  </tr>
+  <tr>
+    <td align="center">
+      <select name="portid" multiple size="10">
+      <option value="0">Port 1
+      <option value="1">Port 2
+      </select>
+    </td>
+    <td align="center">
+      <select name="state">
+      <option value="1">Enable
+      <option value="0">Disable
+      </select>
+    </td>
+    <td align="center">
+      <select name="speed_duplex">
+      <option value="0">Auto
+      </select>
+    </td>
+    <td align="center">
+      <select name="flow">
+      <option value="0">Off
+      </select>
+    </td>
+  </tr>
+  </table>
+<input type="submit" name="submit" value="   Apply   ">
+</form>
+<hr>
+<h3>Port List</h3>
+<table border="1">
+  <tr>
+    <th>Port</th>
+    <th>State</th>
+  </tr>
+  <tr><td>Port 1</td><td>Enable</td></tr>
+  <tr><td>Port 2</td><td>Enable</td></tr>
+  <tr><td>Port 3</td><td>Enable</td></tr>
+  <tr><td>Port 4</td><td>Enable</td></tr>
+  <tr><td>Port 5</td><td>Enable</td></tr>
+  <tr><td>Port 6</td><td>Enable</td></tr>
+  <tr><td>Port 7</td><td>Enable</td></tr>
+  <tr><td>Port 8</td><td>Enable</td></tr>
+  <tr><td>Port 9</td><td>Enable</td></tr>
+  <tr><td>Port 10</td><td>Disable</td></tr>
+</table>
+</fieldset>
+</center>
+</body>
+</html>
