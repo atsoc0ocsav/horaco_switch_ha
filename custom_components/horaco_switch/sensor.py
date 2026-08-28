@@ -145,6 +145,16 @@ SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
         native_unit_of_measurement="ports",
         value_fn=lambda d: len(d.ports),
     ),
+    SwitchSensorDesc(
+        key="max_frame_size",
+        name="Max Frame Size",
+        icon="mdi:package-variant-closed",
+        native_unit_of_measurement="B",
+        # Read from the switch's jumbo-frame page, so it follows whatever size
+        # is configured there rather than assuming a default.
+        value_fn=lambda d: d.jumbo_frame,
+        exists_fn=lambda d: d.jumbo_frame is not None,
+    ),
 )
 
 

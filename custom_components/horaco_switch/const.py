@@ -15,6 +15,7 @@ CGI_INFO       = "/info.cgi"
 CGI_PORT_STATS = "/port.cgi?page=stats"
 CGI_PORT_CFG   = "/port.cgi"
 CGI_PANEL      = "/panel.cgi"
+CGI_JUMBO      = "/fwd.cgi?page=jumboframe"
 CGI_REBOOT     = "/reboot.cgi"
 
 # Port status values

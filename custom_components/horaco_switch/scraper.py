@@ -14,7 +14,11 @@ Auth flow:
                                     full port status table
   4. ``GET /port.cgi?page=stats`` → TX/RX counters
   5. ``GET /panel.cgi``           → copper/fibre port typing (best effort)
-  6. ``POST /reboot.cgi {"cmd":"reboot"}`` → remote reboot
+  6. ``GET /fwd.cgi?page=jumboframe`` → configured maximum frame size
+  7. ``POST /reboot.cgi {"cmd":"reboot"}`` → remote reboot
+
+Steps 5 and 6 read configuration that rarely changes and are cached, so a
+steady-state poll issues three requests rather than five.
 """
 from __future__ import annotations
 
@@ -27,6 +31,7 @@ import aiohttp
 from . import parser
 from .const import (
     CGI_INFO,
+    CGI_JUMBO,
     CGI_LOGIN,
     CGI_PANEL,
     CGI_PORT_CFG,
@@ -47,6 +52,11 @@ _REQUEST_DELAY = 0.4
 
 # The firmware's HTTP server intermittently closes a connection with no reply.
 _MAX_ATTEMPTS = 3
+
+# Slow-changing configuration (front-panel layout, jumbo-frame size) is
+# re-read every Nth poll instead of every poll. At the default 30 s interval
+# that is roughly every five minutes.
+_STATIC_REFRESH_EVERY = 10
 
 
 class HoracoScraper:
@@ -69,8 +79,14 @@ class HoracoScraper:
         )
         self._cookies: dict[str, str] = {}
         self._logged_in = False
-        # Resolved on the first successful scrape, then reused.
+        # Configuration that rarely changes is cached and refreshed
+        # periodically rather than fetched on every poll, to keep the number of
+        # requests per cycle down on this firmware's fragile HTTP server.
+        self._poll_count = 0
+        self._media: dict[str, str] = {}
+        self._jumbo_frame: int | None = None
         self._panel_supported = True
+        self._jumbo_supported = True
 
     # ------------------------------------------------------------------
     # Auth
@@ -168,11 +184,59 @@ class HoracoScraper:
             return None
 
     # ------------------------------------------------------------------
+    # Slow-changing configuration
+    # ------------------------------------------------------------------
+
+    async def _refresh_static(self, port_count: int) -> None:
+        """Refresh cached configuration that rarely changes.
+
+        Fetched on the first poll and every ``_STATIC_REFRESH_EVERY`` polls
+        after that, so a user changing the jumbo-frame size is picked up without
+        a restart, while a steady-state poll stays at three requests.
+        """
+        due = (
+            self._poll_count == 1
+            or self._poll_count % _STATIC_REFRESH_EVERY == 0
+            or (self._panel_supported and not self._media)
+            or (self._jumbo_supported and self._jumbo_frame is None)
+        )
+        if not due:
+            return
+
+        if self._panel_supported and port_count:
+            panel_html = await self._fetch(CGI_PANEL)
+            if panel_html:
+                media = parser.parse_port_media(panel_html, port_count)
+                if media:
+                    self._media = media
+            elif self._poll_count > 1:
+                # Page exists but is unreadable right now; keep what we have.
+                pass
+            else:
+                self._panel_supported = False
+
+        if self._jumbo_supported:
+            jumbo_html = await self._fetch(CGI_JUMBO)
+            if jumbo_html:
+                size = parser.parse_jumbo_frame(jumbo_html)
+                if size is not None:
+                    if size != self._jumbo_frame:
+                        _LOGGER.debug(
+                            "[%s] Max frame size is %d bytes (options: %s)",
+                            self.ip, size,
+                            parser.parse_jumbo_frame_options(jumbo_html),
+                        )
+                    self._jumbo_frame = size
+            elif self._poll_count <= 1:
+                self._jumbo_supported = False
+
+    # ------------------------------------------------------------------
     # Main scrape
     # ------------------------------------------------------------------
 
     async def scrape(self) -> SwitchData:
         """Fetch every telemetry page and assemble a full snapshot."""
+        self._poll_count += 1
         try:
             await self._login()
         except Exception as exc:
@@ -205,15 +269,9 @@ class HoracoScraper:
 
         caps = parser.parse_stats(stats_html or "", ports)
 
-        # Front-panel media typing is cosmetic; never let it break a scrape.
-        if self._panel_supported and ports:
-            panel_html = await self._fetch(CGI_PANEL)
-            if panel_html:
-                media = parser.parse_port_media(panel_html, len(ports))
-                for port in ports:
-                    port.media = media.get(port.port, "")
-            else:
-                self._panel_supported = False
+        await self._refresh_static(len(ports))
+        for port in ports:
+            port.media = self._media.get(port.port, "")
 
         return SwitchData(
             ip=self.ip,
@@ -225,6 +283,7 @@ class HoracoScraper:
             hardware=info.get("hardware", ""),
             netmask=info.get("netmask", ""),
             gateway=info.get("gateway", ""),
+            jumbo_frame=self._jumbo_frame,
             ports=ports,
             available=True,
             has_uptime="uptime" in info,

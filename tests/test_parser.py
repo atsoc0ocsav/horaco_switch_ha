@@ -274,6 +274,73 @@ def test_panel_media_declines_on_count_mismatch(zx_panel):
 
 
 # ══════════════════════════════════════════════════════════════════════════
+# Jumbo frame / max frame size
+# ══════════════════════════════════════════════════════════════════════════
+
+@pytest.fixture
+def zx_jumbo() -> str:
+    return load("zx_swtg124as", "jumboframe.cgi.html")
+
+
+def test_jumbo_frame_reads_selected_size(zx_jumbo):
+    """The selected option is the configured maximum — 9216 on this device."""
+    assert parser.parse_jumbo_frame(zx_jumbo) == 9216
+
+
+def test_jumbo_frame_ignores_missing_enable_checkbox(zx_jumbo):
+    """There is no enable checkbox on this page.
+
+    Gating on one would report the default 1518 while the switch is actually
+    configured for 9216-byte frames.
+    """
+    assert "enable_jumbo" not in zx_jumbo
+    assert parser.parse_jumbo_frame(zx_jumbo) == 9216
+
+
+def test_jumbo_frame_survives_unclosed_option_tags(zx_jumbo):
+    """The firmware never closes <option>, so bs4 nests them.
+
+    get_text() on the selected option yields "921616383"; only its own direct
+    text node gives 9216.
+    """
+    from bs4 import BeautifulSoup
+
+    select = BeautifulSoup(zx_jumbo, "html.parser").find(
+        "select", {"name": "jumboframe"}
+    )
+    selected = next(o for o in select.find_all("option") if o.has_attr("selected"))
+    assert selected.get_text(strip=True) == "921616383"  # the trap
+    assert parser.parse_jumbo_frame(zx_jumbo) == 9216    # handled
+
+
+def test_jumbo_frame_options_enumerated(zx_jumbo):
+    assert parser.parse_jumbo_frame_options(zx_jumbo) == [
+        1522, 1536, 1552, 9216, 16383
+    ]
+
+
+@pytest.mark.parametrize("size", [1522, 1536, 1552, 9216, 16383])
+def test_jumbo_frame_tracks_whichever_size_is_selected(size):
+    """Any of the switch's sizes must be read back, not just the captured one."""
+    options = "".join(
+        f'<option value="{i}"{" selected" if s == size else ""}>{s}'
+        for i, s in enumerate([1522, 1536, 1552, 9216, 16383])
+    )
+    html = f'<select name="jumboframe">{options}</select>'
+    assert parser.parse_jumbo_frame(html) == size
+
+
+def test_jumbo_frame_absent_returns_none():
+    """No page, no select, or nothing selected must be None, never a default."""
+    assert parser.parse_jumbo_frame("") is None
+    assert parser.parse_jumbo_frame("<html><body>nope</body></html>") is None
+    assert parser.parse_jumbo_frame(
+        '<select name="jumboframe"><option value="0">1522</select>'
+    ) is None
+    assert parser.parse_jumbo_frame_options("") == []
+
+
+# ══════════════════════════════════════════════════════════════════════════
 # Layout A — HC-SWTGW218AS (must not regress)
 # ══════════════════════════════════════════════════════════════════════════
 

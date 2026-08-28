@@ -55,6 +55,9 @@ class SwitchData:
     hardware: str = ""
     netmask: str = ""
     gateway: str = ""
+    # Configured maximum frame size in bytes, read from the switch. None when
+    # the device has no jumbo-frame page or it could not be read.
+    jumbo_frame: int | None = None
     ports: list[PortData] = field(default_factory=list)
     timestamp: float = field(default_factory=time.time)
     available: bool = True

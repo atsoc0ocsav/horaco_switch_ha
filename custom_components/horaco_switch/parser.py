@@ -480,3 +480,68 @@ def parse_port_media(panel_html: str, port_count: int) -> dict[str, str]:
         return {}
 
     return {str(i): kind for i, kind in enumerate(media, start=1)}
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# /fwd.cgi?page=jumboframe — configured maximum frame size
+# ──────────────────────────────────────────────────────────────────────────
+
+def _option_own_text(option) -> str:
+    """Text belonging to this ``<option>`` only.
+
+    This firmware never closes its ``<option>`` tags, so the parser nests each
+    one inside the previous and ``get_text()`` on an option returns its own
+    label concatenated with every option after it — ``"9216"`` comes back as
+    ``"921616383"``. Reading only the direct string children avoids that.
+    """
+    return "".join(c for c in option.contents if isinstance(c, str)).strip()
+
+
+def parse_jumbo_frame(jumbo_html: str) -> int | None:
+    """Read the configured maximum frame size, in bytes.
+
+    The page is a bare ``<select name="jumboframe">`` listing the sizes the
+    switch supports, with one option marked ``selected``. There is no separate
+    enable checkbox — the selected size *is* the configured maximum, so it is
+    read from the device rather than assumed, and it tracks whatever the user
+    picks.
+
+    Returns ``None`` if the page is missing or no option is marked selected;
+    callers must not substitute a default, because the value bounds frame-size
+    dependent calculations.
+    """
+    if not jumbo_html:
+        return None
+
+    soup = BeautifulSoup(jumbo_html, "html.parser")
+    select = soup.find("select", {"name": "jumboframe"})
+    if select is None:
+        return None
+
+    for option in select.find_all("option"):
+        if option.has_attr("selected"):
+            text = _option_own_text(option)
+            m = re.search(r"\d+", text)
+            if m:
+                return int(m.group(0))
+            _LOGGER.debug("Selected jumbo-frame option has no number: %r", text)
+            return None
+
+    _LOGGER.debug("No jumbo-frame option marked selected")
+    return None
+
+
+def parse_jumbo_frame_options(jumbo_html: str) -> list[int]:
+    """Every frame size this switch offers, for diagnostics."""
+    if not jumbo_html:
+        return []
+    soup = BeautifulSoup(jumbo_html, "html.parser")
+    select = soup.find("select", {"name": "jumboframe"})
+    if select is None:
+        return []
+    sizes = []
+    for option in select.find_all("option"):
+        m = re.search(r"\d+", _option_own_text(option))
+        if m:
+            sizes.append(int(m.group(0)))
+    return sizes

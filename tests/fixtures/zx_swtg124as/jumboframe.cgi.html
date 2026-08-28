@@ -1,0 +1,50 @@
+<!--
+  Real capture from a HORACO ZX-SWTG124AS (firmware V1.9): /fwd.cgi?page=jumboframe
+
+  Note the two traps this fixture pins:
+    1. There is NO enable checkbox. The selected option IS the configured
+       maximum frame size, so treating a missing checkbox as "jumbo off"
+       reads 9216-byte frames as 1518-byte ones.
+    2. The <option> tags are never closed, so BeautifulSoup nests them and
+       get_text() on the selected option returns "921616383" rather than
+       "9216". Only the direct string children are safe to read.
+
+  Contains no addresses or identifiers, so it is committed verbatim.
+-->
+<html>
+<head>
+<title>Jumbo Frame Setting</title>
+<link rel="stylesheet" type="text/css" href="/style.css">
+<script type="text/javascript">
+</script>
+</head>
+
+<body>
+<center>
+
+<fieldset>
+<legend>Jumbo Frame Setting</legend>
+<form method="post" name="jumboframe" action="/fwd.cgi?page=jumboframe">
+<br>
+<table border="1">
+  <tr>
+    <th width="200">Jumbo Frame (Bytes)</th>
+      <td>
+        <select name="jumboframe">
+          <option value="0">1522
+          <option value="1">1536
+          <option value="2">1552
+          <option value="3" selected>9216
+          <option value="4">16383
+        </select>
+      </td>
+  </tr>
+</table>
+  <br style="line-height:50%">
+  <input type="submit" value="   Apply   ">
+  <input type="hidden" name="cmd" value="jumboframe">
+</form>
+</fieldset>
+</center>
+</body>
+</html>
