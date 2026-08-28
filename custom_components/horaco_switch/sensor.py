@@ -2,11 +2,16 @@
 
 Architecture:
   • One "parent" Device  → the physical switch  (model, firmware, uptime, MAC, ports summary)
-  • One "child" Device per port  → Port N (link, speed, duplex, TX bytes, RX bytes,
-                                            TX packets, RX packets, TX errors, RX errors)
+  • One "child" Device per port  → Port N (link, speed, duplex, TX/RX counters,
+                                            flow control)
 
 This way the UI groups everything per port instead of exposing a flat list of
 disconnected entities.
+
+Entities are created only for data the switch actually reports. Firmware in
+this family differs in what it exposes — the ZX-SWTG124AS has no ``Sys Uptime``
+row and no byte counters, only packet counters — so an entity that could never
+have a real value is not created at all rather than sitting at "unknown".
 """
 from __future__ import annotations
 
@@ -27,10 +32,21 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import HoracoCoordinator
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    MANUFACTURER,
+    PORT_MEDIA_COPPER,
+    PORT_MEDIA_FIBER,
+    PORT_STATUS_UP,
+)
 from .scraper import PortData, SwitchData
 
 _LOGGER = logging.getLogger(__name__)
+
+_MEDIA_LABELS = {
+    PORT_MEDIA_COPPER: "Copper (RJ45)",
+    PORT_MEDIA_FIBER: "Fibre (SFP)",
+}
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -43,10 +59,10 @@ def switch_device_info(coordinator: HoracoCoordinator) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, coordinator.scraper.ip)},
         name=f"Switch {coordinator.scraper.ip}",
-        manufacturer="HORACO",
+        manufacturer=MANUFACTURER,
         model=d.model if d else "Unknown",
         sw_version=d.firmware if d else None,
-        hw_version=None,
+        hw_version=(d.hardware or None) if d else None,
         connections={("mac", d.mac)} if d and d.mac else set(),
         configuration_url=f"http://{coordinator.scraper.ip}",
     )
@@ -54,11 +70,19 @@ def switch_device_info(coordinator: HoracoCoordinator) -> DeviceInfo:
 
 def port_device_info(coordinator: HoracoCoordinator, port_num: str) -> DeviceInfo:
     """DeviceInfo for a single port (child device, via_device → switch)."""
+    media = ""
+    if coordinator.data:
+        port = next(
+            (p for p in coordinator.data.ports if p.port == port_num), None
+        )
+        if port is not None:
+            media = port.media
+
     return DeviceInfo(
         identifiers={(DOMAIN, f"{coordinator.scraper.ip}_port{port_num}")},
         name=f"Port {port_num}",
-        manufacturer="HORACO",
-        model=f"Port {port_num}",
+        manufacturer=MANUFACTURER,
+        model=_MEDIA_LABELS.get(media, f"Port {port_num}"),
         via_device=(DOMAIN, coordinator.scraper.ip),
     )
 
@@ -70,6 +94,8 @@ def port_device_info(coordinator: HoracoCoordinator, port_num: str) -> DeviceInf
 @dataclass
 class SwitchSensorDesc(SensorEntityDescription):
     value_fn: Callable[[SwitchData], Any] | None = None
+    # Whether this device exposes the underlying data at all.
+    exists_fn: Callable[[SwitchData], bool] = lambda d: True
 
 
 SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
@@ -78,6 +104,8 @@ SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
         name="Uptime",
         icon="mdi:timer-outline",
         value_fn=lambda d: d.uptime or None,
+        # ZX-SWTG124AS firmware does not report uptime anywhere.
+        exists_fn=lambda d: d.has_uptime,
     ),
     SwitchSensorDesc(
         key="firmware",
@@ -97,7 +125,7 @@ SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
         icon="mdi:ethernet",
         native_unit_of_measurement="ports",
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=lambda d: sum(1 for p in d.ports if p.status == "up"),
+        value_fn=lambda d: sum(1 for p in d.ports if p.status == PORT_STATUS_UP),
     ),
     SwitchSensorDesc(
         key="ports_total",
@@ -116,6 +144,7 @@ SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
 @dataclass
 class PortSensorDesc(SensorEntityDescription):
     value_fn: Callable[[PortData], Any] | None = None
+    exists_fn: Callable[[SwitchData], bool] = lambda d: True
 
 
 PORT_SENSORS: tuple[PortSensorDesc, ...] = (
@@ -139,6 +168,7 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         device_class=SensorDeviceClass.DATA_SIZE,
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda p: p.tx_bytes,
+        exists_fn=lambda d: d.has_byte_counters,
     ),
     PortSensorDesc(
         key="rx_bytes",
@@ -148,6 +178,7 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         device_class=SensorDeviceClass.DATA_SIZE,
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda p: p.rx_bytes,
+        exists_fn=lambda d: d.has_byte_counters,
     ),
     PortSensorDesc(
         key="tx_packets",
@@ -164,6 +195,24 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         native_unit_of_measurement="packets",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda p: p.rx_packets,
+    ),
+    PortSensorDesc(
+        key="tx_errors",
+        name="TX Errors",
+        icon="mdi:alert-circle-outline",
+        native_unit_of_measurement="packets",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda p: p.tx_errors,
+        exists_fn=lambda d: d.has_error_counters,
+    ),
+    PortSensorDesc(
+        key="rx_errors",
+        name="RX Errors",
+        icon="mdi:alert-circle-outline",
+        native_unit_of_measurement="packets",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda p: p.rx_errors,
+        exists_fn=lambda d: d.has_error_counters,
     ),
     PortSensorDesc(
         key="flow_control",
@@ -184,17 +233,25 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: HoracoCoordinator = hass.data[DOMAIN][entry.entry_id]
+    data = coordinator.data
     entities: list[SensorEntity] = []
 
-    # Switch-level sensors
     for desc in SWITCH_SENSORS:
-        entities.append(SwitchLevelSensor(coordinator, desc))
+        if data is None or desc.exists_fn(data):
+            entities.append(SwitchLevelSensor(coordinator, desc))
 
-    # Port-level sensors (one child device per port)
-    if coordinator.data:
-        for port in coordinator.data.ports:
+    if data:
+        for port in data.ports:
             for desc in PORT_SENSORS:
-                entities.append(PortLevelSensor(coordinator, port.port, desc))
+                if desc.exists_fn(data):
+                    entities.append(PortLevelSensor(coordinator, port.port, desc))
+
+        if not data.has_byte_counters:
+            _LOGGER.debug(
+                "[%s] Firmware reports packet counters only; TX/RX byte "
+                "sensors were not created",
+                coordinator.scraper.ip,
+            )
 
     async_add_entities(entities)
 
@@ -217,7 +274,11 @@ class SwitchLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        return self.entity_description.value_fn(self.coordinator.data) if self.coordinator.data else None
+        return (
+            self.entity_description.value_fn(self.coordinator.data)
+            if self.coordinator.data
+            else None
+        )
 
 
 class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
@@ -241,7 +302,9 @@ class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
     def _port(self) -> PortData | None:
         if not self.coordinator.data:
             return None
-        return next((p for p in self.coordinator.data.ports if p.port == self._port_num), None)
+        return next(
+            (p for p in self.coordinator.data.ports if p.port == self._port_num), None
+        )
 
     @property
     def native_value(self) -> Any:
@@ -253,7 +316,12 @@ class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
         p = self._port()
         if not p:
             return {}
-        return {
+        attrs: dict[str, Any] = {
             "status": p.status,
             "link": p.link,
         }
+        if p.media:
+            attrs["media"] = p.media
+        if p.speed_config:
+            attrs["speed_config"] = p.speed_config
+        return attrs
