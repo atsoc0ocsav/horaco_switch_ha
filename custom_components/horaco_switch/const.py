@@ -10,13 +10,20 @@ DEFAULT_SCAN_INTERVAL = 30  # seconds
 CONF_SCAN_INTERVAL = "scan_interval"
 
 # CGI endpoints — same as byte4geek/switch-dashboard
-CGI_LOGIN     = "/login.cgi"
-CGI_INFO      = "/info.cgi"
+CGI_LOGIN      = "/login.cgi"
+CGI_INFO       = "/info.cgi"
 CGI_PORT_STATS = "/port.cgi?page=stats"
-CGI_PORT_CFG  = "/port.cgi"
-CGI_REBOOT    = "/reboot.cgi"
+CGI_PORT_CFG   = "/port.cgi"
+CGI_PANEL      = "/panel.cgi"
+CGI_REBOOT     = "/reboot.cgi"
 
 # Port status values
 PORT_STATUS_UP       = "up"
 PORT_STATUS_DOWN     = "down"
 PORT_STATUS_DISABLED = "disable"
+
+# Port media types (from the front-panel graphic; may be unknown)
+PORT_MEDIA_COPPER = "copper"
+PORT_MEDIA_FIBER  = "fiber"
+
+MANUFACTURER = "HORACO"

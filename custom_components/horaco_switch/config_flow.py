@@ -12,7 +12,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DEFAULT_PASSWORD, DEFAULT_PORT, DEFAULT_SCAN_INTERVAL, DEFAULT_USERNAME, DOMAIN
-from .scraper import HoracoScraper
+from .scraper import HoracoScraper, SwitchData
 
 _LOGGER = logging.getLogger(__name__)
 
