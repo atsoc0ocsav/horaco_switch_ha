@@ -94,7 +94,7 @@ After setup click **Configure** on the integration card to adjust the polling in
 | MAC Address | Sensor | Switch hardware MAC |
 | Ports Up | Sensor | Count of active ports |
 | Ports Total | Sensor | Total physical port count |
-| Max Frame Size | Sensor | Configured maximum frame size in bytes, read from the switch's jumbo-frame page |
+| Jumbo Frame Size | Sensor | Configured maximum frame size in bytes, read from the switch's jumbo-frame page. An `available_sizes` attribute lists the sizes the switch offers |
 | **Reboot** | **Button** | Sends `POST /reboot.cgi` to the switch |
 
 ### Port N device *(one per physical port)*
@@ -139,7 +139,7 @@ This firmware counts **frames, not bytes**, so packets per second can be derived
 exactly but a bit rate cannot. With the maximum frame size configurable from 1522
 to 16383 bytes, the same packet rate spans well over two orders of magnitude in
 bits per second, which is why no byte or throughput sensor is synthesised here.
-The configured maximum is exposed as the **Max Frame Size** sensor so you can see
+The configured maximum is exposed as the **Jumbo Frame Size** sensor so you can see
 what the switch is actually set to.
 
 For a packet rate, add a [derivative helper](https://www.home-assistant.io/integrations/derivative/)

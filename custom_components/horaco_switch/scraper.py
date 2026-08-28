@@ -85,6 +85,7 @@ class HoracoScraper:
         self._poll_count = 0
         self._media: dict[str, str] = {}
         self._jumbo_frame: int | None = None
+        self._jumbo_options: list[int] = []
         self._panel_supported = True
         self._jumbo_supported = True
 
@@ -219,12 +220,14 @@ class HoracoScraper:
             jumbo_html = await self._fetch(CGI_JUMBO)
             if jumbo_html:
                 size = parser.parse_jumbo_frame(jumbo_html)
+                options = parser.parse_jumbo_frame_options(jumbo_html)
+                if options:
+                    self._jumbo_options = options
                 if size is not None:
                     if size != self._jumbo_frame:
                         _LOGGER.debug(
-                            "[%s] Max frame size is %d bytes (options: %s)",
-                            self.ip, size,
-                            parser.parse_jumbo_frame_options(jumbo_html),
+                            "[%s] Jumbo frame size is %d bytes (available: %s)",
+                            self.ip, size, options,
                         )
                     self._jumbo_frame = size
             elif self._poll_count <= 1:
@@ -284,6 +287,7 @@ class HoracoScraper:
             netmask=info.get("netmask", ""),
             gateway=info.get("gateway", ""),
             jumbo_frame=self._jumbo_frame,
+            jumbo_frame_options=list(self._jumbo_options),
             ports=ports,
             available=True,
             has_uptime="uptime" in info,

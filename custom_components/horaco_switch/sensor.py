@@ -107,6 +107,7 @@ class SwitchSensorDesc(SensorEntityDescription):
     value_fn: Callable[[SwitchData], Any] | None = None
     # Whether this device exposes the underlying data at all.
     exists_fn: Callable[[SwitchData], bool] = lambda d: True
+    attrs_fn: Callable[[SwitchData], dict[str, Any]] | None = None
 
 
 SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
@@ -146,14 +147,22 @@ SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
         value_fn=lambda d: len(d.ports),
     ),
     SwitchSensorDesc(
+        # Named after the switch's own "Jumbo Frame (Bytes)" field so it is
+        # findable by the term the device's web UI uses. The key stays
+        # max_frame_size to keep unique_ids stable.
         key="max_frame_size",
-        name="Max Frame Size",
+        name="Jumbo Frame Size",
         icon="mdi:package-variant-closed",
         native_unit_of_measurement="B",
         # Read from the switch's jumbo-frame page, so it follows whatever size
         # is configured there rather than assuming a default.
         value_fn=lambda d: d.jumbo_frame,
         exists_fn=lambda d: d.jumbo_frame is not None,
+        attrs_fn=lambda d: (
+            {"available_sizes": d.jumbo_frame_options}
+            if d.jumbo_frame_options
+            else {}
+        ),
     ),
 )
 
@@ -300,6 +309,13 @@ class SwitchLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
             if self.coordinator.data
             else None
         )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attrs_fn = self.entity_description.attrs_fn
+        if attrs_fn is None or not self.coordinator.data:
+            return {}
+        return attrs_fn(self.coordinator.data)
 
 
 class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
