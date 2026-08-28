@@ -115,6 +115,23 @@ The Link binary sensor also carries `media` (`copper` / `fiber`) and
 `speed_config` (the configured rate, usually `Auto`) as attributes when the
 switch reports them.
 
+### Counter behaviour
+
+The switch clears its port statistics on reboot, and its statistics page has a
+**Clear** button that does the same. Counter sensors are `TOTAL_INCREASING`, so
+Home Assistant handles this: a drop below 90% of the previous value is treated
+as a meter reset and a new cycle is started, rather than being recorded as a
+negative delta. Long-term statistics survive a switch reboot.
+
+For that to stay true, a counter that could not be read is published as
+`unknown` rather than `0` — a `0` would be indistinguishable from a reset, and
+the next successful poll would then add the whole counter onto the long-term sum
+a second time. Home Assistant filters non-numeric states out before its reset
+check, so `unknown` is safe. A genuine `0` from the switch (a port that has
+never passed traffic) is still reported as `0`.
+
+The integration never clears the switch's counters.
+
 ---
 
 ## Example automations
