@@ -399,6 +399,12 @@ def _resolve_stats_columns(headers: list[str]) -> dict[str, int]:
 def parse_stats(stats_html: str, ports: list[PortData]) -> dict[str, bool]:
     """Fill counters on ``ports`` in place.
 
+    Counters are left at ``None`` for any port this page does not cover, and for
+    every port when the page could not be read at all. A failed read must not
+    publish 0: to Home Assistant's ``TOTAL_INCREASING`` handling a drop below
+    90% of the previous value is a counter reset, so a single dropped request
+    would otherwise add the whole counter onto the long-term sum a second time.
+
     Returns capability flags describing which counter families the device
     actually reported.
     """

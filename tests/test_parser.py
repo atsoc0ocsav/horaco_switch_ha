@@ -202,13 +202,58 @@ def test_zx_byte_counters_are_not_fabricated(zx_info, zx_port, zx_stats):
 
     Earlier code estimated bytes as packets * 800. An invented total that is
     wired to a DATA_SIZE sensor and long-term statistics is worse than no
-    sensor, so byte counters must stay zero and unadvertised.
+    sensor, so byte counters must stay unreported and unadvertised.
     """
     ports = parser.parse_ports(zx_info, zx_port)
     caps = parser.parse_stats(zx_stats, ports)
 
     assert caps["has_byte_counters"] is False
-    assert all(p.tx_bytes == 0 and p.rx_bytes == 0 for p in ports)
+    assert all(p.tx_bytes is None and p.rx_bytes is None for p in ports)
+
+
+def test_unread_counters_stay_none_not_zero(zx_info, zx_port):
+    """A failed statistics fetch must not look like a counter reset.
+
+    Counters are TOTAL_INCREASING. Home Assistant treats a drop below 90% of
+    the previous value as a meter reset, so publishing 0 for a counter that was
+    simply not read would add the whole counter onto the long-term sum again on
+    the next good poll. Unread must be None (unknown), which HA filters out.
+    """
+    ports = parser.parse_ports(zx_info, zx_port)
+    assert ports, "ports should still be discovered without the stats page"
+
+    caps = parser.parse_stats("", ports)  # empty == fetch failed
+
+    assert caps == {"has_byte_counters": False, "has_error_counters": False}
+    for p in ports:
+        assert p.tx_packets is None
+        assert p.rx_packets is None
+        assert p.tx_errors is None
+        assert p.rx_errors is None
+
+
+def test_real_zero_is_distinguishable_from_unread(zx_info, zx_port, zx_stats):
+    """Port 2 genuinely reports 0 packets; that must read as 0, not unknown."""
+    ports = parser.parse_ports(zx_info, zx_port)
+    parser.parse_stats(zx_stats, ports)
+    by_port = {p.port: p for p in ports}
+
+    assert by_port["2"].tx_packets == 0
+    assert by_port["2"].rx_packets == 0
+
+
+def test_port_absent_from_stats_page_keeps_none(zx_info, zx_port):
+    """A stats page covering fewer ports must not zero the ones it omits."""
+    partial = (
+        "<table><tr><th>Port</th><th>TxGoodPkt</th><th>RxGoodPkt</th></tr>"
+        "<tr><td>Port 1</td><td>500</td><td>600</td></tr></table>"
+    )
+    ports = parser.parse_ports(zx_info, zx_port)
+    parser.parse_stats(partial, ports)
+    by_port = {p.port: p for p in ports}
+
+    assert by_port["1"].tx_packets == 500
+    assert by_port["6"].tx_packets is None
 
 
 def test_zx_panel_media_typing(zx_info, zx_port, zx_panel):
@@ -325,4 +370,4 @@ def test_stats_with_unrecognised_header_is_ignored():
                       duplex="", flow_control="")]
     caps = parser.parse_stats(html, ports)
     assert caps == {"has_byte_counters": False, "has_error_counters": False}
-    assert ports[0].tx_packets == 0
+    assert ports[0].tx_packets is None

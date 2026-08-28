@@ -12,6 +12,17 @@ Entities are created only for data the switch actually reports. Firmware in
 this family differs in what it exposes — the ZX-SWTG124AS has no ``Sys Uptime``
 row and no byte counters, only packet counters — so an entity that could never
 have a real value is not created at all rather than sitting at "unknown".
+
+Counters are published as ``TOTAL_INCREASING``, which is what lets Home
+Assistant cope with the switch clearing its statistics — on a reboot, or via the
+Clear button on the switch's own statistics page. HA treats a drop below 90% of
+the previous value as a meter reset and starts a new cycle rather than recording
+a negative delta, so the long-term sum survives.
+
+That same behaviour is why an unread counter must be published as ``None``
+(unknown) and never as 0: a 0 would be indistinguishable from a reset, and the
+next good reading would then be added onto the long-term sum a second time.
+Non-numeric states are filtered out before HA's reset check, so unknown is safe.
 """
 from __future__ import annotations
 

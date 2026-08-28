@@ -79,19 +79,25 @@ class PortLinkBinarySensor(CoordinatorEntity[HoracoCoordinator], BinarySensorEnt
             "speed":        p.speed,
             "duplex":       p.duplex,
             "flow_control": p.flow_control,
-            "tx_packets":   p.tx_packets,
-            "rx_packets":   p.rx_packets,
         }
 
         data = self.coordinator.data
-        # Only advertise counters the firmware actually reports, so a consumer
-        # cannot mistake a placeholder zero for a real reading.
+        # Only advertise counters the firmware actually reports, and only once
+        # they have really been read — None means "not read", not zero.
+        if p.tx_packets is not None:
+            attrs["tx_packets"] = p.tx_packets
+        if p.rx_packets is not None:
+            attrs["rx_packets"] = p.rx_packets
         if data and data.has_byte_counters:
-            attrs["tx_bytes"] = p.tx_bytes
-            attrs["rx_bytes"] = p.rx_bytes
+            if p.tx_bytes is not None:
+                attrs["tx_bytes"] = p.tx_bytes
+            if p.rx_bytes is not None:
+                attrs["rx_bytes"] = p.rx_bytes
         if data and data.has_error_counters:
-            attrs["tx_errors"] = p.tx_errors
-            attrs["rx_errors"] = p.rx_errors
+            if p.tx_errors is not None:
+                attrs["tx_errors"] = p.tx_errors
+            if p.rx_errors is not None:
+                attrs["rx_errors"] = p.rx_errors
         if p.media:
             attrs["media"] = p.media
         if p.speed_config:
