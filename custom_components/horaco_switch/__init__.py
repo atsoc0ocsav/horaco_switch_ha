@@ -14,7 +14,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
+from .options import clamp_scan_interval
 from .scraper import HoracoScraper, SwitchData
 
 _LOGGER = logging.getLogger(__name__)
@@ -24,6 +29,17 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.BUTTON,
 ]
+
+
+def resolve_scan_interval(entry: ConfigEntry) -> int:
+    """Polling interval from the entry's options, clamped to the safe range.
+
+    Read at coordinator construction and again on every options update, so the
+    value the user picks takes effect without a restart.
+    """
+    return clamp_scan_interval(
+        entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -41,7 +57,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Without this, editing the polling interval appears to work but has no
+    # effect until Home Assistant restarts.
+    entry.async_on_unload(entry.add_update_listener(async_update_options))
     return True
+
+
+async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Apply an options change immediately.
+
+    The interval is adjusted in place so the entry is not torn down and every
+    entity keeps its state and counter history.
+    """
+    coordinator: HoracoCoordinator | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if coordinator is None:
+        return
+
+    seconds = resolve_scan_interval(entry)
+    if coordinator.update_interval == timedelta(seconds=seconds):
+        return
+
+    _LOGGER.debug(
+        "[%s] Polling interval changed to %s s", coordinator.scraper.ip, seconds
+    )
+    coordinator.update_interval = timedelta(seconds=seconds)
+    await coordinator.async_request_refresh()
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -53,7 +94,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 class HoracoCoordinator(DataUpdateCoordinator[SwitchData]):
-    """Central coordinator — polls the switch at a fixed interval."""
+    """Central coordinator — polls the switch at the configured interval."""
 
     def __init__(
         self,
@@ -67,9 +108,7 @@ class HoracoCoordinator(DataUpdateCoordinator[SwitchData]):
             hass,
             _LOGGER,
             name=f"{DOMAIN}_{scraper.ip}",
-            update_interval=timedelta(
-                seconds=entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
-            ),
+            update_interval=timedelta(seconds=resolve_scan_interval(entry)),
         )
 
     async def _async_update_data(self) -> SwitchData:

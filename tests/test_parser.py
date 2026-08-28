@@ -438,3 +438,56 @@ def test_stats_with_unrecognised_header_is_ignored():
     caps = parser.parse_stats(html, ports)
     assert caps == {"has_byte_counters": False, "has_error_counters": False}
     assert ports[0].tx_packets is None
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Polling interval
+# ══════════════════════════════════════════════════════════════════════════
+
+from horaco_switch_parsing import options as options_mod  # noqa: E402
+from horaco_switch_parsing.const import (  # noqa: E402
+    DEFAULT_SCAN_INTERVAL,
+    MAX_SCAN_INTERVAL,
+    MIN_SCAN_INTERVAL,
+)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (30, 30),
+        (10, MIN_SCAN_INTERVAL),
+        (300, MAX_SCAN_INTERVAL),
+        # The UI number selector hands back a float.
+        (30.0, 30),
+        (45.7, 45),
+        # Hand-edited storage or YAML hands back a string.
+        ("60", 60),
+        ("60.0", 60),
+        # Out of range is clamped, not rejected.
+        (1, MIN_SCAN_INTERVAL),
+        (0, MIN_SCAN_INTERVAL),
+        (-5, MIN_SCAN_INTERVAL),
+        (9999, MAX_SCAN_INTERVAL),
+        # Unusable input falls back rather than raising.
+        (None, DEFAULT_SCAN_INTERVAL),
+        ("abc", DEFAULT_SCAN_INTERVAL),
+        ("", DEFAULT_SCAN_INTERVAL),
+        ([], DEFAULT_SCAN_INTERVAL),
+    ],
+)
+def test_clamp_scan_interval(raw, expected):
+    assert options_mod.clamp_scan_interval(raw) == expected
+
+
+def test_clamp_scan_interval_never_raises():
+    """A bad stored value must not stop the integration loading."""
+    for raw in (object(), {"a": 1}, b"30", float("nan"), float("inf")):
+        result = options_mod.clamp_scan_interval(raw)
+        assert MIN_SCAN_INTERVAL <= result <= MAX_SCAN_INTERVAL
+
+
+def test_scan_interval_lower_bound_protects_the_switch():
+    """The floor exists because this firmware drops requests when hammered."""
+    assert MIN_SCAN_INTERVAL >= 10
+    assert MIN_SCAN_INTERVAL <= DEFAULT_SCAN_INTERVAL <= MAX_SCAN_INTERVAL

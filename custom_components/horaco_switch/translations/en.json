@@ -3,12 +3,16 @@
     "step": {
       "user": {
         "title": "Connect to your Managed Switch",
-        "description": "Works with HORACO HC-SWTGW218AS, HC-SWTGW215AS, keepLink KP9000 and compatible OEM switches. Default credentials are admin / admin.",
+        "description": "Works with HORACO HC-SWTGW218AS, HC-SWTGW215AS, ZX-SWTG124AS, keepLink KP9000 and compatible OEM switches. Default credentials are admin / admin.",
         "data": {
           "host": "Switch IP Address",
           "port": "HTTP Port",
           "username": "Username",
-          "password": "Password"
+          "password": "Password",
+          "scan_interval": "Polling interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll the switch, 10 to 300 seconds. Lower values react faster but load the switch's small web server harder; 30 seconds is a good default. You can change this later without re-adding the switch."
         }
       }
     },
@@ -25,7 +29,10 @@
       "init": {
         "title": "HORACO Switch Options",
         "data": {
-          "scan_interval": "Polling interval (seconds, 10–300)"
+          "scan_interval": "Polling interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll the switch, 10 to 300 seconds. Changes apply immediately — no restart needed."
         }
       }
     }

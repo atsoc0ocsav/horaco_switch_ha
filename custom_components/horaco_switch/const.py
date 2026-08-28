@@ -7,6 +7,11 @@ DEFAULT_USERNAME = "admin"
 DEFAULT_PASSWORD = "admin"
 DEFAULT_SCAN_INTERVAL = 30  # seconds
 
+# Bounds on the polling interval. The lower bound protects the switch's uIP
+# HTTP server, which drops requests when polled too aggressively.
+MIN_SCAN_INTERVAL = 10
+MAX_SCAN_INTERVAL = 300
+
 CONF_SCAN_INTERVAL = "scan_interval"
 
 # CGI endpoints — same as byte4geek/switch-dashboard

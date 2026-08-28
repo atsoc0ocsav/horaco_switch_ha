@@ -78,8 +78,15 @@ the same model ships with differing firmware builds.
 | HTTP Port | `80` | Change only if you remapped the web UI |
 | Username | `admin` | Default HORACO credential |
 | Password | `admin` | Default HORACO credential |
+| Polling interval | `30` s | How often to poll, 10–300 s. Set it during setup or change it later |
 
-After setup click **Configure** on the integration card to adjust the polling interval (10–300 s).
+The polling interval can be set while adding the switch and changed afterwards
+via **Configure** on the integration card. Changes apply immediately — no
+restart, and entities keep their state and counter history.
+
+Lower values react faster to a link going down, at the cost of loading the
+switch's small web server harder; it drops requests when polled too
+aggressively, which is why 10 s is the floor. 30 s is a sensible default.
 
 ---
 
