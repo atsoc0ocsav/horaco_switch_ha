@@ -94,6 +94,7 @@ After setup click **Configure** on the integration card to adjust the polling in
 | MAC Address | Sensor | Switch hardware MAC |
 | Ports Up | Sensor | Count of active ports |
 | Ports Total | Sensor | Total physical port count |
+| Max Frame Size | Sensor | Configured maximum frame size in bytes, read from the switch's jumbo-frame page |
 | **Reboot** | **Button** | Sends `POST /reboot.cgi` to the switch |
 
 ### Port N device *(one per physical port)*
@@ -131,6 +132,19 @@ check, so `unknown` is safe. A genuine `0` from the switch (a port that has
 never passed traffic) is still reported as `0`.
 
 The integration never clears the switch's counters.
+
+### Why there is no throughput sensor
+
+This firmware counts **frames, not bytes**, so packets per second can be derived
+exactly but a bit rate cannot. With the maximum frame size configurable from 1522
+to 16383 bytes, the same packet rate spans well over two orders of magnitude in
+bits per second, which is why no byte or throughput sensor is synthesised here.
+The configured maximum is exposed as the **Max Frame Size** sensor so you can see
+what the switch is actually set to.
+
+For a packet rate, add a [derivative helper](https://www.home-assistant.io/integrations/derivative/)
+on a TX/RX Packets sensor. For true throughput, read byte counters from the
+devices attached to the ports — the switch cannot provide them.
 
 ---
 
@@ -178,7 +192,10 @@ action:
    - `GET /port.cgi` → admin state per port; on firmware without a port table in `/info.cgi`, also the full status table (`Config` / `Actual` columns)
    - `GET /port.cgi?page=stats` → packet, error and (where available) byte counters
    - `GET /panel.cgi` → copper / fibre port typing, best effort
+   - `GET /fwd.cgi?page=jumboframe` → configured maximum frame size
 3. **Reboot** — `POST /reboot.cgi {"cmd":"reboot"}`
+
+The last two read configuration that rarely changes, so they are cached and re-read every tenth poll (about every five minutes at the default interval). A steady-state poll therefore issues three requests, not five, which matters on this firmware's fragile HTTP server. Changing the jumbo-frame size on the switch is still picked up without restarting Home Assistant.
 
 A 0.4 s delay between sequential requests prevents session thrashing on the switch's uIP micro-controller. That server also drops the occasional connection with no reply, so each read is retried up to three times before being treated as a failure.
 
