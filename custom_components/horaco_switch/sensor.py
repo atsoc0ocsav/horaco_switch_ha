@@ -226,6 +226,27 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda p: p.rx_packets,
     ),
+    # Frame rate, not bit rate. This firmware exposes no byte counters, so a
+    # throughput figure in bits per second cannot be derived — only frames per
+    # second, which is exact.
+    PortSensorDesc(
+        key="tx_pps",
+        name="TX Rate",
+        icon="mdi:upload-network-outline",
+        native_unit_of_measurement="packets/s",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda p: p.tx_pps,
+    ),
+    PortSensorDesc(
+        key="rx_pps",
+        name="RX Rate",
+        icon="mdi:download-network-outline",
+        native_unit_of_measurement="packets/s",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=lambda p: p.rx_pps,
+    ),
     PortSensorDesc(
         key="tx_errors",
         name="TX Errors",

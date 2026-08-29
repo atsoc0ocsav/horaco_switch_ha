@@ -25,10 +25,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import time
 
 import aiohttp
 
 from . import parser
+from .rates import RateTracker
 from .const import (
     CGI_INFO,
     CGI_JUMBO,
@@ -88,6 +90,8 @@ class HoracoScraper:
         self._jumbo_options: list[int] = []
         self._panel_supported = True
         self._jumbo_supported = True
+        # Derives per-port frame rates from consecutive polls.
+        self._rates = RateTracker()
 
     # ------------------------------------------------------------------
     # Auth
@@ -271,6 +275,9 @@ class HoracoScraper:
             )
 
         caps = parser.parse_stats(stats_html or "", ports)
+
+        # Frame rates need two samples; the first poll leaves them unset.
+        self._rates.update(ports, time.monotonic())
 
         await self._refresh_static(len(ports))
         for port in ports:

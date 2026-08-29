@@ -35,6 +35,10 @@ class PortData:
     rx_packets: int | None = None
     tx_errors: int | None = None
     rx_errors: int | None = None
+    # Frames per second, derived from consecutive polls. None when unknowable:
+    # first poll, an unread counter, or a counter that was cleared.
+    tx_pps: float | None = None
+    rx_pps: float | None = None
 
 
 @dataclass

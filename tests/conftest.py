@@ -33,7 +33,7 @@ def _bootstrap() -> None:
     sys.modules[PACKAGE] = package
 
     # Order matters: parser and options import const and models.
-    for name in ("const", "models", "parser", "options"):
+    for name in ("const", "models", "parser", "options", "rates"):
         path = _COMPONENT / f"{name}.py"
         spec = importlib.util.spec_from_file_location(f"{PACKAGE}.{name}", path)
         if spec is None or spec.loader is None:

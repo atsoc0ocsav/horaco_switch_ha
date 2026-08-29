@@ -491,3 +491,115 @@ def test_scan_interval_lower_bound_protects_the_switch():
     """The floor exists because this firmware drops requests when hammered."""
     assert MIN_SCAN_INTERVAL >= 10
     assert MIN_SCAN_INTERVAL <= DEFAULT_SCAN_INTERVAL <= MAX_SCAN_INTERVAL
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Packet rate derivation
+# ══════════════════════════════════════════════════════════════════════════
+
+from horaco_switch_parsing import rates as rates_mod  # noqa: E402
+
+
+def _port(num="1", tx=None, rx=None):
+    return PortData(port=num, status="up", link="Link Up", speed="1000M",
+                    duplex="Full", flow_control="", tx_packets=tx, rx_packets=rx)
+
+
+@pytest.mark.parametrize(
+    ("prev", "curr", "elapsed", "expected"),
+    [
+        (1000, 2000, 10.0, 100.0),
+        (0, 30, 30.0, 1.0),
+        (500, 500, 10.0, 0.0),        # genuinely idle is a real 0
+        (None, 2000, 10.0, None),     # counter never read
+        (1000, None, 10.0, None),
+        (1000, 2000, 0.0, None),      # no time elapsed
+        (1000, 2000, 0.1, None),      # below the minimum interval
+        (2000, 1000, 10.0, None),     # counter cleared
+        (1000, 2000, float("nan"), None),
+        (1000, 2000, float("inf"), None),
+    ],
+)
+def test_compute_rate(prev, curr, elapsed, expected):
+    assert rates_mod.compute_rate(prev, curr, elapsed) == expected
+
+
+def test_first_poll_has_no_rate():
+    """With no baseline a rate is unknown, and must not be reported as 0."""
+    tracker = rates_mod.RateTracker()
+    assert not tracker.has_baseline
+    ports = [_port("1", 1000, 2000)]
+    tracker.update(ports, 100.0)
+    assert ports[0].tx_pps is None
+    assert ports[0].rx_pps is None
+    assert tracker.has_baseline
+
+
+def test_second_poll_derives_rate():
+    tracker = rates_mod.RateTracker()
+    tracker.update([_port("1", 1000, 2000)], 100.0)
+    ports = [_port("1", 1300, 2600)]
+    tracker.update(ports, 130.0)  # 30 s later
+    assert ports[0].tx_pps == pytest.approx(10.0)
+    assert ports[0].rx_pps == pytest.approx(20.0)
+
+
+def test_idle_port_reports_zero_rate_not_unknown():
+    """A port passing no traffic has a real rate of 0."""
+    tracker = rates_mod.RateTracker()
+    tracker.update([_port("1", 500, 500)], 100.0)
+    ports = [_port("1", 500, 500)]
+    tracker.update(ports, 130.0)
+    assert ports[0].tx_pps == 0.0
+    assert ports[0].rx_pps == 0.0
+
+
+def test_counter_reset_yields_no_rate():
+    """After the switch clears statistics the interval's traffic is unknowable.
+
+    Reporting (0 - previous) would be negative, and reporting the new absolute
+    value as a rate would invent a spike.
+    """
+    tracker = rates_mod.RateTracker()
+    tracker.update([_port("1", 5_000_000, 5_000_000)], 100.0)
+    ports = [_port("1", 12, 8)]  # rebooted, counters restarted
+    tracker.update(ports, 130.0)
+    assert ports[0].tx_pps is None
+    assert ports[0].rx_pps is None
+
+    # The poll after that has a fresh baseline and works again.
+    later = [_port("1", 312, 308)]
+    tracker.update(later, 160.0)
+    assert later[0].tx_pps == pytest.approx(10.0)
+    assert later[0].rx_pps == pytest.approx(10.0)
+
+
+def test_unread_counter_does_not_poison_the_baseline():
+    """A failed statistics read must not produce a huge rate on recovery."""
+    tracker = rates_mod.RateTracker()
+    tracker.update([_port("1", 1000, 1000)], 100.0)
+
+    missed = [_port("1", None, None)]      # stats page failed
+    tracker.update(missed, 130.0)
+    assert missed[0].tx_pps is None
+
+    recovered = [_port("1", 1300, 1300)]
+    tracker.update(recovered, 160.0)
+    # Baseline is the unread None, so the rate stays unknown for one cycle
+    # rather than being computed against a stale 30-second-old reading.
+    assert recovered[0].tx_pps is None
+
+    following = [_port("1", 1600, 1600)]
+    tracker.update(following, 190.0)
+    assert following[0].tx_pps == pytest.approx(10.0)
+
+
+def test_new_port_between_polls_has_no_rate():
+    """Ports are matched by number, never by position."""
+    tracker = rates_mod.RateTracker()
+    tracker.update([_port("1", 1000, 1000)], 100.0)
+    ports = [_port("1", 1300, 1300), _port("2", 9999, 9999)]
+    tracker.update(ports, 130.0)
+    by_port = {p.port: p for p in ports}
+    assert by_port["1"].tx_pps == pytest.approx(10.0)
+    assert by_port["2"].tx_pps is None

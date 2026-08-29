@@ -98,6 +98,10 @@ class PortLinkBinarySensor(CoordinatorEntity[HoracoCoordinator], BinarySensorEnt
                 attrs["tx_errors"] = p.tx_errors
             if p.rx_errors is not None:
                 attrs["rx_errors"] = p.rx_errors
+        if p.tx_pps is not None:
+            attrs["tx_packets_per_second"] = round(p.tx_pps, 2)
+        if p.rx_pps is not None:
+            attrs["rx_packets_per_second"] = round(p.rx_pps, 2)
         if p.media:
             attrs["media"] = p.media
         if p.speed_config:

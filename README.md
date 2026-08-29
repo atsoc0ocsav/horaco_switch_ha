@@ -115,6 +115,8 @@ aggressively, which is why 10 s is the floor. 30 s is a sensible default.
 | RX | Sensor | Total bytes received (cumulative) — only when the firmware exposes byte counters |
 | TX Packets | Sensor | Total packets transmitted |
 | RX Packets | Sensor | Total packets received |
+| TX Rate | Sensor | Frames per second transmitted, derived from consecutive polls |
+| RX Rate | Sensor | Frames per second received, derived from consecutive polls |
 | TX Errors | Sensor | Bad packets transmitted — only when the firmware exposes them |
 | RX Errors | Sensor | Bad packets received — only when the firmware exposes them |
 | Flow Control | Sensor | Negotiated flow control (`On` / `Off` / `Enabled` / `Disabled`) |
@@ -140,18 +142,25 @@ never passed traffic) is still reported as `0`.
 
 The integration never clears the switch's counters.
 
-### Why there is no throughput sensor
+### Rates: frames per second, not bits per second
 
-This firmware counts **frames, not bytes**, so packets per second can be derived
-exactly but a bit rate cannot. With the maximum frame size configurable from 1522
-to 16383 bytes, the same packet rate spans well over two orders of magnitude in
-bits per second, which is why no byte or throughput sensor is synthesised here.
-The configured maximum is exposed as the **Jumbo Frame Size** sensor so you can see
-what the switch is actually set to.
+**TX Rate** and **RX Rate** give the traffic rate per port in frames per second,
+derived from the change in the counters between polls. They are exact.
 
-For a packet rate, add a [derivative helper](https://www.home-assistant.io/integrations/derivative/)
-on a TX/RX Packets sensor. For true throughput, read byte counters from the
-devices attached to the ports — the switch cannot provide them.
+A rate in *bits* per second is not available, and is deliberately not estimated.
+This firmware exposes no byte or octet counters anywhere — not on the statistics
+page, and not on any other page (`bw_ctrl` configures rate *limits*, it does not
+measure). Converting frames to bits needs an average frame size, which the switch
+never reports. With the maximum frame size configurable from 1522 to 16383 bytes,
+one frame rate spans over two orders of magnitude in bits per second, so any
+bits/sec figure here would be a guess wearing a unit. The **Jumbo Frame Size**
+sensor shows the configured ceiling.
+
+For true throughput, read byte counters from the devices attached to the ports.
+
+A rate is reported as `unknown`, never 0, when it cannot be known: on the first
+poll after startup, when a statistics read failed, or for the one interval
+spanning a counter reset. An idle port reports a real `0`.
 
 ---
 
