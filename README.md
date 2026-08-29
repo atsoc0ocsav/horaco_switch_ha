@@ -273,6 +273,26 @@ The last two read configuration that rarely changes, so they are cached and re-r
 
 A 0.4 s delay between sequential requests prevents session thrashing on the switch's uIP micro-controller. That server also drops the occasional connection with no reply, so each read is retried up to three times before being treated as a failure.
 
+### Firmware fragility (worth knowing before you probe this switch)
+
+The management stack on this hardware is easy to knock over, which is why the
+integration polls conservatively, retries reads, and caches the pages that rarely
+change:
+
+- **Requests arriving back to back get dropped.** The HTTP server closes
+  connections with no reply under even modest concurrency. This is normal, not a
+  fault, and is the reason for the inter-request delay and the retries.
+- **Oversized frames aimed at the management IP can crash the switch.** On a
+  ZX-SWTG124AS the management stack answered ICMP up to roughly 2000 bytes and
+  refused beyond that; a do-not-fragment sweep continuing up to ~9100 bytes
+  wedged the device completely — no ICMP, no HTTP, and no frames forwarded at
+  all, with the link still showing up at layer 1. It needed a power cycle, and
+  one port did not come back up on its own afterwards. The jumbo-frame setting
+  governs the switching fabric, not the management CPU, so do not read a high
+  value there as licence to send large frames to the switch's own address.
+- **To test jumbo forwarding, test between two hosts on either side** of the
+  switch, so frames traverse the fabric instead of terminating on its CPU.
+
 ---
 
 ## Development
