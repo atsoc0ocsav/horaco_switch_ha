@@ -29,10 +29,12 @@
       "init": {
         "title": "HORACO Switch Options",
         "data": {
-          "scan_interval": "Polling interval (seconds)"
+          "scan_interval": "Polling interval (seconds)",
+          "assumed_frame_bytes": "Assumed average frame size for throughput estimate (bytes)"
         },
         "data_description": {
-          "scan_interval": "How often to poll the switch, 10 to 300 seconds. Changes apply immediately — no restart needed."
+          "scan_interval": "How often to poll the switch, 10 to 300 seconds. Changes apply immediately — no restart needed.",
+          "assumed_frame_bytes": "Leave at 0 to disable. The switch counts frames, not bytes, so a bit rate can only be estimated by assuming an average frame size — set the value you know matches this switch's traffic. The resulting sensors are labelled as estimates and are only as accurate as this assumption: at 64 bytes versus 9216 the same frame rate differs by more than 100x."
         }
       }
     }

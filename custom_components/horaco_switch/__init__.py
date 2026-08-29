@@ -15,11 +15,13 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_ASSUMED_FRAME_BYTES,
     CONF_SCAN_INTERVAL,
+    DEFAULT_ASSUMED_FRAME_BYTES,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
-from .options import clamp_scan_interval
+from .options import clamp_assumed_frame_bytes, clamp_scan_interval
 from .scraper import HoracoScraper, SwitchData
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,6 +41,13 @@ def resolve_scan_interval(entry: ConfigEntry) -> int:
     """
     return clamp_scan_interval(
         entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    )
+
+
+def resolve_assumed_frame_bytes(entry: ConfigEntry) -> int:
+    """Assumed average frame size for the throughput estimate, 0 when off."""
+    return clamp_assumed_frame_bytes(
+        entry.options.get(CONF_ASSUMED_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES)
     )
 
 
@@ -72,6 +81,18 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """
     coordinator: HoracoCoordinator | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if coordinator is None:
+        return
+
+    # Turning the throughput estimate on or off adds or removes entities, which
+    # only a reload can do; a pure interval change is applied in place.
+    was = coordinator.data.assumed_frame_bytes if coordinator.data else 0
+    now = resolve_assumed_frame_bytes(entry)
+    if (was == 0) != (now == 0):
+        _LOGGER.debug(
+            "[%s] Estimated throughput toggled (%s -> %s); reloading entry",
+            coordinator.scraper.ip, was, now,
+        )
+        await hass.config_entries.async_reload(entry.entry_id)
         return
 
     seconds = resolve_scan_interval(entry)
@@ -115,4 +136,7 @@ class HoracoCoordinator(DataUpdateCoordinator[SwitchData]):
         data = await self.scraper.scrape()
         if not data.available:
             raise UpdateFailed(f"Switch {self.scraper.ip} is unreachable")
+        # Read per poll rather than cached, so editing the assumption in the
+        # options flow takes effect on the next update.
+        data.assumed_frame_bytes = resolve_assumed_frame_bytes(self.entry)
         return data

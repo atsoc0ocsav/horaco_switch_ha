@@ -17,12 +17,15 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    CONF_ASSUMED_FRAME_BYTES,
     CONF_SCAN_INTERVAL,
+    DEFAULT_ASSUMED_FRAME_BYTES,
     DEFAULT_PASSWORD,
     DEFAULT_PORT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_USERNAME,
     DOMAIN,
+    MAX_FRAME_BYTES,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
 )
@@ -130,18 +133,36 @@ class HoracoOptionsFlow(config_entries.OptionsFlow):
                 data={
                     CONF_SCAN_INTERVAL: int(
                         user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-                    )
+                    ),
+                    CONF_ASSUMED_FRAME_BYTES: int(
+                        user_input.get(
+                            CONF_ASSUMED_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES
+                        )
+                    ),
                 },
             )
 
-        current = self.config_entry.options.get(
-            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
-        )
+        options = self.config_entry.options
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
                 vol.Optional(
-                    CONF_SCAN_INTERVAL, default=current
+                    CONF_SCAN_INTERVAL,
+                    default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 ): _interval_selector(),
+                vol.Optional(
+                    CONF_ASSUMED_FRAME_BYTES,
+                    default=options.get(
+                        CONF_ASSUMED_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES
+                    ),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=0,
+                        max=MAX_FRAME_BYTES,
+                        step=1,
+                        unit_of_measurement="B",
+                        mode=NumberSelectorMode.BOX,
+                    )
+                ),
             }),
         )

@@ -79,6 +79,7 @@ the same model ships with differing firmware builds.
 | Username | `admin` | Default HORACO credential |
 | Password | `admin` | Default HORACO credential |
 | Polling interval | `30` s | How often to poll, 10–300 s. Set it during setup or change it later |
+| Assumed average frame size | `0` (off) | Options only. Set a byte size to enable the estimated-throughput sensors |
 
 The polling interval can be set while adding the switch and changed afterwards
 via **Configure** on the integration card. Changes apply immediately — no
@@ -117,6 +118,8 @@ aggressively, which is why 10 s is the floor. 30 s is a sensible default.
 | RX Packets | Sensor | Total packets received |
 | TX Rate | Sensor | Frames per second transmitted, derived from consecutive polls |
 | RX Rate | Sensor | Frames per second received, derived from consecutive polls |
+| TX Throughput (estimated) | Sensor | Estimated bit rate, only when you set an assumed average frame size |
+| RX Throughput (estimated) | Sensor | Estimated bit rate, only when you set an assumed average frame size |
 | TX Errors | Sensor | Bad packets transmitted — only when the firmware exposes them |
 | RX Errors | Sensor | Bad packets received — only when the firmware exposes them |
 | Flow Control | Sensor | Negotiated flow control (`On` / `Off` / `Enabled` / `Disabled`) |
@@ -142,21 +145,36 @@ never passed traffic) is still reported as `0`.
 
 The integration never clears the switch's counters.
 
-### Rates: frames per second, not bits per second
+### Rates: frames per second, and an optional bit-rate estimate
 
 **TX Rate** and **RX Rate** give the traffic rate per port in frames per second,
 derived from the change in the counters between polls. They are exact.
 
-A rate in *bits* per second is not available, and is deliberately not estimated.
-This firmware exposes no byte or octet counters anywhere — not on the statistics
-page, and not on any other page (`bw_ctrl` configures rate *limits*, it does not
-measure). Converting frames to bits needs an average frame size, which the switch
-never reports. With the maximum frame size configurable from 1522 to 16383 bytes,
-one frame rate spans over two orders of magnitude in bits per second, so any
-bits/sec figure here would be a guess wearing a unit. The **Jumbo Frame Size**
-sensor shows the configured ceiling.
+A rate in *bits* per second cannot be measured. This firmware exposes no byte or
+octet counters anywhere — not on the statistics page, and not on any other page
+(`bw_ctrl` configures rate *limits*, it does not measure). Converting frames to
+bits needs an average frame size the switch never reports.
 
-For true throughput, read byte counters from the devices attached to the ports.
+It can still be **estimated**, if you supply that average. Set
+**Assumed average frame size** in the integration options (0, the default,
+disables it) and each port gains **TX Throughput (estimated)** and
+**RX Throughput (estimated)**, computed as
+`frames/s × (assumed bytes + 20) × 8` — the 20 bytes being preamble, SFD and
+interframe gap, so the figure describes what the link carries rather than payload
+alone.
+
+Treat these as what they are. The assumption dominates the result: at one
+measured 49.15 frames/s, the estimate is 33 kbit/s assuming minimum-size frames,
+605 kbit/s assuming standard 1518-byte frames, and 3.6 Mbit/s assuming this
+switch's 9216-byte jumbo maximum — a spread of about 110×. The sensors are named
+"(estimated)" and carry `estimated: true` plus `assumed_frame_bytes` as
+attributes so the assumption travels with the value. They are `MEASUREMENT`
+sensors, deliberately not cumulative totals, so a wrong assumption cannot
+contaminate long-term energy-style statistics.
+
+Pick the assumption from what the port actually carries: near the MTU for bulk
+transfer, far below it for chatty or control traffic. If you need throughput you
+can trust, read byte counters from the devices attached to the ports.
 
 A rate is reported as `unknown`, never 0, when it cannot be known: on the first
 poll after startup, when a statistics read failed, or for the one interval

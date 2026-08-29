@@ -37,6 +37,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfDataRate
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -49,6 +50,7 @@ from .const import (
     PORT_MEDIA_COPPER,
     PORT_MEDIA_FIBER,
     PORT_STATUS_UP,
+    WIRE_OVERHEAD_BYTES,
 )
 from .scraper import PortData, SwitchData
 
@@ -174,7 +176,33 @@ SWITCH_SENSORS: tuple[SwitchSensorDesc, ...] = (
 @dataclass
 class PortSensorDesc(SensorEntityDescription):
     value_fn: Callable[[PortData], Any] | None = None
+    # For values that also need switch-level context (the assumed frame size).
+    switch_value_fn: Callable[[PortData, SwitchData], Any] | None = None
     exists_fn: Callable[[SwitchData], bool] = lambda d: True
+    port_attrs_fn: Callable[[PortData, SwitchData], dict[str, Any]] | None = None
+
+
+def _estimated_bits_per_second(
+    pps: float | None, assumed_frame_bytes: int
+) -> float | None:
+    """Frames per second → bits per second, given an assumed frame size.
+
+    Returns ``None`` when the frame rate is unknown or no assumption was made,
+    so the estimate never invents a value of its own.
+    """
+    if pps is None or assumed_frame_bytes <= 0:
+        return None
+    return pps * (assumed_frame_bytes + WIRE_OVERHEAD_BYTES) * 8
+
+
+def _estimate_attrs(port: PortData, data: SwitchData) -> dict[str, Any]:
+    """Make the assumption behind an estimate visible on the entity."""
+    return {
+        "estimated": True,
+        "assumed_frame_bytes": data.assumed_frame_bytes,
+        "on_wire_bytes_per_frame": data.assumed_frame_bytes + WIRE_OVERHEAD_BYTES,
+        "includes_wire_overhead": True,
+    }
 
 
 PORT_SENSORS: tuple[PortSensorDesc, ...] = (
@@ -246,6 +274,40 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         value_fn=lambda p: p.rx_pps,
+    ),
+    # Opt-in estimates. Off unless the user sets an assumed average frame size,
+    # because the switch reports no bytes and the result is only as good as
+    # that assumption. Named and attributed as estimates so they cannot be
+    # mistaken for a measurement.
+    PortSensorDesc(
+        key="tx_throughput_estimated",
+        name="TX Throughput (estimated)",
+        icon="mdi:upload-network",
+        device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.BITS_PER_SECOND,
+        suggested_unit_of_measurement=UnitOfDataRate.KILOBITS_PER_SECOND,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        switch_value_fn=lambda p, d: _estimated_bits_per_second(
+            p.tx_pps, d.assumed_frame_bytes
+        ),
+        exists_fn=lambda d: d.assumed_frame_bytes > 0,
+        port_attrs_fn=_estimate_attrs,
+    ),
+    PortSensorDesc(
+        key="rx_throughput_estimated",
+        name="RX Throughput (estimated)",
+        icon="mdi:download-network",
+        device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.BITS_PER_SECOND,
+        suggested_unit_of_measurement=UnitOfDataRate.KILOBITS_PER_SECOND,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        switch_value_fn=lambda p, d: _estimated_bits_per_second(
+            p.rx_pps, d.assumed_frame_bytes
+        ),
+        exists_fn=lambda d: d.assumed_frame_bytes > 0,
+        port_attrs_fn=_estimate_attrs,
     ),
     PortSensorDesc(
         key="tx_errors",
@@ -367,7 +429,13 @@ class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
     @property
     def native_value(self) -> Any:
         p = self._port()
-        return self.entity_description.value_fn(p) if p else None
+        if p is None:
+            return None
+        desc = self.entity_description
+        if desc.switch_value_fn is not None:
+            data = self.coordinator.data
+            return desc.switch_value_fn(p, data) if data else None
+        return desc.value_fn(p)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -382,4 +450,8 @@ class PortLevelSensor(CoordinatorEntity[HoracoCoordinator], SensorEntity):
             attrs["media"] = p.media
         if p.speed_config:
             attrs["speed_config"] = p.speed_config
+
+        port_attrs_fn = self.entity_description.port_attrs_fn
+        if port_attrs_fn is not None and self.coordinator.data:
+            attrs.update(port_attrs_fn(p, self.coordinator.data))
         return attrs

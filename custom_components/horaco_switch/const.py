@@ -14,6 +14,18 @@ MAX_SCAN_INTERVAL = 300
 
 CONF_SCAN_INTERVAL = "scan_interval"
 
+# Optional estimated-throughput feature. The switch reports frames only, so a
+# bit rate can only be produced by assuming an average frame size. 0 disables
+# it, which is the default: no assumption is made unless the user makes one.
+CONF_ASSUMED_FRAME_BYTES = "assumed_frame_bytes"
+DEFAULT_ASSUMED_FRAME_BYTES = 0
+MIN_FRAME_BYTES = 64            # smallest legal Ethernet frame
+MAX_FRAME_BYTES = 16383         # largest this firmware offers
+
+# Preamble + start-of-frame delimiter (8 B) and interframe gap (12 B). Counted
+# because the estimate describes what the link carries, not just payload.
+WIRE_OVERHEAD_BYTES = 20
+
 # CGI endpoints — same as byte4geek/switch-dashboard
 CGI_LOGIN      = "/login.cgi"
 CGI_INFO       = "/info.cgi"

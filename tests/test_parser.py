@@ -603,3 +603,86 @@ def test_new_port_between_polls_has_no_rate():
     by_port = {p.port: p for p in ports}
     assert by_port["1"].tx_pps == pytest.approx(10.0)
     assert by_port["2"].tx_pps is None
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# Estimated throughput (opt-in)
+# ══════════════════════════════════════════════════════════════════════════
+
+from horaco_switch_parsing.const import (  # noqa: E402
+    DEFAULT_ASSUMED_FRAME_BYTES,
+    MAX_FRAME_BYTES,
+    MIN_FRAME_BYTES,
+    WIRE_OVERHEAD_BYTES,
+)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # Disabled by default and on any non-positive value.
+        (0, 0),
+        (None, DEFAULT_ASSUMED_FRAME_BYTES),
+        (-1, 0),
+        # Legal sizes pass through.
+        (64, 64),
+        (1518, 1518),
+        (9216, 9216),
+        ("1518", 1518),
+        (1518.0, 1518),
+        # Out of range clamps into the legal frame range.
+        (10, MIN_FRAME_BYTES),
+        (63, MIN_FRAME_BYTES),
+        (99999, MAX_FRAME_BYTES),
+        # Unusable input disables rather than inventing a size.
+        ("abc", 0),
+        ("", 0),
+        (float("inf"), 0),
+        (float("nan"), 0),
+        ([], 0),
+    ],
+)
+def test_clamp_assumed_frame_bytes(raw, expected):
+    assert options_mod.clamp_assumed_frame_bytes(raw) == expected
+
+
+def test_estimate_is_disabled_by_default():
+    """No assumption is made unless the user makes one."""
+    assert DEFAULT_ASSUMED_FRAME_BYTES == 0
+    assert options_mod.clamp_assumed_frame_bytes(None) == 0
+
+
+def test_wire_overhead_is_preamble_plus_gap():
+    """8 B preamble/SFD + 12 B interframe gap."""
+    assert WIRE_OVERHEAD_BYTES == 20
+
+
+def test_estimate_arithmetic_matches_hand_calculation():
+    """49.15 frames/s at 1518 B on the wire is ~604.7 kbit/s."""
+    pps = 49.15
+    bits = pps * (1518 + WIRE_OVERHEAD_BYTES) * 8
+    assert bits == pytest.approx(604_741.6, rel=1e-6)
+
+
+def test_estimate_sensitivity_to_the_assumption():
+    """The assumption dominates the result, which is why it is opt-in.
+
+    Two separate ratios, easy to conflate: a standard 1518 B frame is ~18x a
+    minimum-size one, while this switch's configured 9216 B jumbo maximum is
+    ~110x it.
+    """
+    pps = 49.15
+
+    def bits(frame_bytes: int) -> float:
+        return pps * (frame_bytes + WIRE_OVERHEAD_BYTES) * 8
+
+    minimum = bits(MIN_FRAME_BYTES)          # 84 B on the wire
+    standard = bits(1518)                    # 1538 B on the wire
+    jumbo = bits(9216)                       # 9236 B on the wire
+
+    assert standard / minimum == pytest.approx(1538 / 84, rel=1e-9)
+    assert standard / minimum == pytest.approx(18.3, abs=0.1)
+
+    assert jumbo / minimum == pytest.approx(9236 / 84, rel=1e-9)
+    assert jumbo / minimum == pytest.approx(110.0, abs=0.5)
+    assert jumbo / minimum > 100

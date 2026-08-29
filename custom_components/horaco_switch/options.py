@@ -8,7 +8,14 @@ from __future__ import annotations
 import logging
 import math
 
-from .const import DEFAULT_SCAN_INTERVAL, MAX_SCAN_INTERVAL, MIN_SCAN_INTERVAL
+from .const import (
+    DEFAULT_ASSUMED_FRAME_BYTES,
+    DEFAULT_SCAN_INTERVAL,
+    MAX_FRAME_BYTES,
+    MAX_SCAN_INTERVAL,
+    MIN_FRAME_BYTES,
+    MIN_SCAN_INTERVAL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,3 +53,32 @@ def clamp_scan_interval(raw: object) -> int:
 
     seconds = int(as_float)
     return max(MIN_SCAN_INTERVAL, min(MAX_SCAN_INTERVAL, seconds))
+
+
+def clamp_assumed_frame_bytes(raw: object) -> int:
+    """Coerce the assumed average frame size, in bytes.
+
+    ``0`` means the estimated-throughput sensors are disabled, which is the
+    default. Any other value is clamped into the legal Ethernet frame range.
+    Unusable input disables the feature rather than falling back to a made-up
+    size: an estimate is only meaningful when the user chose its assumption.
+    """
+    if raw is None:
+        return DEFAULT_ASSUMED_FRAME_BYTES
+    try:
+        as_float = float(raw)
+    except (TypeError, ValueError):
+        _LOGGER.warning(
+            "Invalid assumed_frame_bytes %r, disabling estimated throughput", raw
+        )
+        return DEFAULT_ASSUMED_FRAME_BYTES
+    if not math.isfinite(as_float):
+        _LOGGER.warning(
+            "Non-finite assumed_frame_bytes %r, disabling estimated throughput", raw
+        )
+        return DEFAULT_ASSUMED_FRAME_BYTES
+
+    size = int(as_float)
+    if size <= 0:
+        return DEFAULT_ASSUMED_FRAME_BYTES
+    return max(MIN_FRAME_BYTES, min(MAX_FRAME_BYTES, size))
