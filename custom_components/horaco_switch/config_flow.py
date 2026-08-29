@@ -18,6 +18,8 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_ASSUMED_FRAME_BYTES,
+    CONF_ASSUMED_RX_FRAME_BYTES,
+    CONF_ASSUMED_TX_FRAME_BYTES,
     CONF_SCAN_INTERVAL,
     DEFAULT_ASSUMED_FRAME_BYTES,
     DEFAULT_PASSWORD,
@@ -49,6 +51,24 @@ def _interval_selector() -> NumberSelector:
             mode=NumberSelectorMode.BOX,
         )
     )
+
+
+def _frame_selector() -> NumberSelector:
+    """Byte box for an assumed average frame size; 0 disables the estimate."""
+    return NumberSelector(
+        NumberSelectorConfig(
+            min=0,
+            max=MAX_FRAME_BYTES,
+            step=1,
+            unit_of_measurement="B",
+            mode=NumberSelectorMode.BOX,
+        )
+    )
+
+
+def _legacy_frame_bytes(options) -> int:
+    """Honour the pre-split single option as the default for both directions."""
+    return int(options.get(CONF_ASSUMED_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES))
 
 
 STEP_SCHEMA = vol.Schema({
@@ -134,9 +154,14 @@ class HoracoOptionsFlow(config_entries.OptionsFlow):
                     CONF_SCAN_INTERVAL: int(
                         user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
                     ),
-                    CONF_ASSUMED_FRAME_BYTES: int(
+                    CONF_ASSUMED_TX_FRAME_BYTES: int(
                         user_input.get(
-                            CONF_ASSUMED_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES
+                            CONF_ASSUMED_TX_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES
+                        )
+                    ),
+                    CONF_ASSUMED_RX_FRAME_BYTES: int(
+                        user_input.get(
+                            CONF_ASSUMED_RX_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES
                         )
                     ),
                 },
@@ -151,18 +176,16 @@ class HoracoOptionsFlow(config_entries.OptionsFlow):
                     default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 ): _interval_selector(),
                 vol.Optional(
-                    CONF_ASSUMED_FRAME_BYTES,
+                    CONF_ASSUMED_TX_FRAME_BYTES,
                     default=options.get(
-                        CONF_ASSUMED_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES
+                        CONF_ASSUMED_TX_FRAME_BYTES, _legacy_frame_bytes(options)
                     ),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0,
-                        max=MAX_FRAME_BYTES,
-                        step=1,
-                        unit_of_measurement="B",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
+                ): _frame_selector(),
+                vol.Optional(
+                    CONF_ASSUMED_RX_FRAME_BYTES,
+                    default=options.get(
+                        CONF_ASSUMED_RX_FRAME_BYTES, _legacy_frame_bytes(options)
+                    ),
+                ): _frame_selector(),
             }),
         )

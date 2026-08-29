@@ -62,9 +62,10 @@ class SwitchData:
     # Configured maximum frame size in bytes, read from the switch. None when
     # the device has no jumbo-frame page or it could not be read.
     jumbo_frame: int | None = None
-    # Average frame size the user asked the throughput estimate to assume, in
-    # bytes. 0 means no estimate is produced.
-    assumed_frame_bytes: int = 0
+    # Average frame sizes the user asked the throughput estimate to assume, in
+    # bytes, per direction. 0 means no estimate is produced for that direction.
+    assumed_tx_frame_bytes: int = 0
+    assumed_rx_frame_bytes: int = 0
     # Every frame size this switch offers, for context on the value above.
     jumbo_frame_options: list[int] = field(default_factory=list)
     ports: list[PortData] = field(default_factory=list)

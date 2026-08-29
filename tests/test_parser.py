@@ -686,3 +686,31 @@ def test_estimate_sensitivity_to_the_assumption():
     assert jumbo / minimum == pytest.approx(9236 / 84, rel=1e-9)
     assert jumbo / minimum == pytest.approx(110.0, abs=0.5)
     assert jumbo / minimum > 100
+
+
+def test_legacy_single_frame_option_still_clamps():
+    """Entries written before the TX/RX split must keep working."""
+    assert options_mod.clamp_assumed_frame_bytes(1518) == 1518
+    assert options_mod.clamp_assumed_frame_bytes(0) == 0
+
+
+def test_directions_are_independent_assumptions():
+    """The measured link showed 1372 B one way and 239 B the other.
+
+    A single assumption cannot serve both, which is why the option is split.
+    """
+    tx_truth, rx_truth = 1372, 239
+    assert options_mod.clamp_assumed_frame_bytes(tx_truth) == tx_truth
+    assert options_mod.clamp_assumed_frame_bytes(rx_truth) == rx_truth
+    assert tx_truth / rx_truth > 5
+
+
+def test_wire_overhead_explains_offset_against_a_byte_counting_device():
+    """Our estimate is on-wire; a peer's byte counter is frame-only.
+
+    Measured cross-check: assuming the true 854 B average, the estimate came out
+    +2.3% above RouterOS's byte-derived rate, which is exactly (854+20)/854.
+    """
+    frame = 854
+    ratio = (frame + WIRE_OVERHEAD_BYTES) / frame
+    assert ratio == pytest.approx(1.0234, abs=0.0005)

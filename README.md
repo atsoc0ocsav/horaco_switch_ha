@@ -79,7 +79,7 @@ the same model ships with differing firmware builds.
 | Username | `admin` | Default HORACO credential |
 | Password | `admin` | Default HORACO credential |
 | Polling interval | `30` s | How often to poll, 10–300 s. Set it during setup or change it later |
-| Assumed average frame size | `0` (off) | Options only. Set a byte size to enable the estimated-throughput sensors |
+| Assumed average TX/RX frame size | `0` (off) | Options only, set per direction. A byte size enables the estimated-throughput sensors |
 
 The polling interval can be set while adding the switch and changed afterwards
 via **Configure** on the integration card. Changes apply immediately — no
@@ -155,26 +155,47 @@ octet counters anywhere — not on the statistics page, and not on any other pag
 (`bw_ctrl` configures rate *limits*, it does not measure). Converting frames to
 bits needs an average frame size the switch never reports.
 
-It can still be **estimated**, if you supply that average. Set
-**Assumed average frame size** in the integration options (0, the default,
-disables it) and each port gains **TX Throughput (estimated)** and
-**RX Throughput (estimated)**, computed as
+It can still be **estimated**, if you supply that average. Set **Assumed average
+TX frame size** and **Assumed average RX frame size** in the integration options
+(0, the default, disables each) and the corresponding ports gain
+**TX Throughput (estimated)** and **RX Throughput (estimated)**, computed as
 `frames/s × (assumed bytes + 20) × 8` — the 20 bytes being preamble, SFD and
 interframe gap, so the figure describes what the link carries rather than payload
 alone.
 
-Treat these as what they are. The assumption dominates the result: at one
-measured 49.15 frames/s, the estimate is 33 kbit/s assuming minimum-size frames,
-605 kbit/s assuming standard 1518-byte frames, and 3.6 Mbit/s assuming this
-switch's 9216-byte jumbo maximum — a spread of about 110×. The sensors are named
-"(estimated)" and carry `estimated: true` plus `assumed_frame_bytes` as
-attributes so the assumption travels with the value. They are `MEASUREMENT`
-sensors, deliberately not cumulative totals, so a wrong assumption cannot
-contaminate long-term energy-style statistics.
+**The two directions are set separately because they genuinely differ.** On a
+measured 10G uplink from this switch to an upstream MikroTik, one direction
+averaged 1372 bytes per frame while the other averaged 239 — 5.7× apart. A single
+assumption cannot fit both.
 
-Pick the assumption from what the port actually carries: near the MTU for bulk
-transfer, far below it for chatty or control traffic. If you need throughput you
-can trust, read byte counters from the devices attached to the ports.
+#### Measuring the right value
+
+If the device at the other end of a link reports byte counters, it gives you the
+answer directly: **bytes ÷ packets** over the same interval. Cross-checked
+against a MikroTik CRS310 on the far end of one link, over a 33-second window:
+
+| Direction | True average | Assumed | Estimate vs truth |
+|---|---|---|---|
+| into this switch | 854 B | 64 B | −90% |
+| into this switch | 854 B | 1518 B | +80% |
+| into this switch | 854 B | 9216 B | +981% |
+| into this switch | 854 B | **854 B (measured)** | **+2.3%** |
+
+The residual +2.3% is not error: it is the 20 bytes of preamble and interframe
+gap this integration counts and a frame-byte counter does not — exactly
+`(854+20)/854`. Subtract it if you are comparing the two figures directly.
+
+The same window also confirmed the **frame counters themselves agree**: this
+switch and the MikroTik differed by 1.7% on the identical link, so the TX/RX Rate
+sensors are sound independently of any assumption.
+
+Treat the estimates as what they are: named "(estimated)", carrying
+`estimated: true`, `assumed_frame_bytes` and `includes_wire_overhead` as
+attributes so the assumption travels with the value, and `MEASUREMENT` rather
+than cumulative totals so a wrong assumption cannot contaminate long-term
+statistics. Pick the assumption from what the port actually carries — near the
+MTU for bulk transfer, far below it for chatty or control traffic. If you need
+throughput you can trust, read the byte counters from the attached devices.
 
 A rate is reported as `unknown`, never 0, when it cannot be known: on the first
 poll after startup, when a statistics read failed, or for the one interval

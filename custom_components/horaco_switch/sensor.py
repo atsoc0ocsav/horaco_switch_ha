@@ -195,12 +195,17 @@ def _estimated_bits_per_second(
     return pps * (assumed_frame_bytes + WIRE_OVERHEAD_BYTES) * 8
 
 
-def _estimate_attrs(port: PortData, data: SwitchData) -> dict[str, Any]:
-    """Make the assumption behind an estimate visible on the entity."""
+def _estimate_attrs(assumed: int) -> dict[str, Any]:
+    """Make the assumption behind an estimate visible on the entity.
+
+    ``includes_wire_overhead`` matters when comparing against another device:
+    a switch that reports byte counters normally counts the frame only, so its
+    figure is lower than this one by (frame + 20) / frame.
+    """
     return {
         "estimated": True,
-        "assumed_frame_bytes": data.assumed_frame_bytes,
-        "on_wire_bytes_per_frame": data.assumed_frame_bytes + WIRE_OVERHEAD_BYTES,
+        "assumed_frame_bytes": assumed,
+        "on_wire_bytes_per_frame": assumed + WIRE_OVERHEAD_BYTES,
         "includes_wire_overhead": True,
     }
 
@@ -289,10 +294,10 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         switch_value_fn=lambda p, d: _estimated_bits_per_second(
-            p.tx_pps, d.assumed_frame_bytes
+            p.tx_pps, d.assumed_tx_frame_bytes
         ),
-        exists_fn=lambda d: d.assumed_frame_bytes > 0,
-        port_attrs_fn=_estimate_attrs,
+        exists_fn=lambda d: d.assumed_tx_frame_bytes > 0,
+        port_attrs_fn=lambda p, d: _estimate_attrs(d.assumed_tx_frame_bytes),
     ),
     PortSensorDesc(
         key="rx_throughput_estimated",
@@ -304,10 +309,10 @@ PORT_SENSORS: tuple[PortSensorDesc, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         switch_value_fn=lambda p, d: _estimated_bits_per_second(
-            p.rx_pps, d.assumed_frame_bytes
+            p.rx_pps, d.assumed_rx_frame_bytes
         ),
-        exists_fn=lambda d: d.assumed_frame_bytes > 0,
-        port_attrs_fn=_estimate_attrs,
+        exists_fn=lambda d: d.assumed_rx_frame_bytes > 0,
+        port_attrs_fn=lambda p, d: _estimate_attrs(d.assumed_rx_frame_bytes),
     ),
     PortSensorDesc(
         key="tx_errors",

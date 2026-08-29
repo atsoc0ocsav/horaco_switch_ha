@@ -30,11 +30,13 @@
         "title": "HORACO Switch Options",
         "data": {
           "scan_interval": "Polling interval (seconds)",
-          "assumed_frame_bytes": "Assumed average frame size for throughput estimate (bytes)"
+          "assumed_tx_frame_bytes": "Assumed average TX frame size (bytes)",
+          "assumed_rx_frame_bytes": "Assumed average RX frame size (bytes)"
         },
         "data_description": {
           "scan_interval": "How often to poll the switch, 10 to 300 seconds. Changes apply immediately — no restart needed.",
-          "assumed_frame_bytes": "Leave at 0 to disable. The switch counts frames, not bytes, so a bit rate can only be estimated by assuming an average frame size — set the value you know matches this switch's traffic. The resulting sensors are labelled as estimates and are only as accurate as this assumption: at 64 bytes versus 9216 the same frame rate differs by more than 100x."
+          "assumed_tx_frame_bytes": "Leave at 0 to disable. The switch counts frames, not bytes, so a bit rate can only be estimated by assuming an average frame size. Measure it on the device at the other end of the link if it reports byte counters: bytes divided by packets. The two directions usually differ a lot — on a real uplink one averaged 1372 B while the other averaged 239 B — which is why they are set separately. A wrong value is wrong proportionally: assuming 1518 B where the truth was 854 B overstated the rate by 80%.",
+          "assumed_rx_frame_bytes": "Same as above, for the receive direction. Set it independently."
         }
       }
     }

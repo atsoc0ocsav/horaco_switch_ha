@@ -16,6 +16,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .const import (
     CONF_ASSUMED_FRAME_BYTES,
+    CONF_ASSUMED_RX_FRAME_BYTES,
+    CONF_ASSUMED_TX_FRAME_BYTES,
     CONF_SCAN_INTERVAL,
     DEFAULT_ASSUMED_FRAME_BYTES,
     DEFAULT_SCAN_INTERVAL,
@@ -44,11 +46,20 @@ def resolve_scan_interval(entry: ConfigEntry) -> int:
     )
 
 
-def resolve_assumed_frame_bytes(entry: ConfigEntry) -> int:
-    """Assumed average frame size for the throughput estimate, 0 when off."""
-    return clamp_assumed_frame_bytes(
-        entry.options.get(CONF_ASSUMED_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES)
+def resolve_assumed_frame_bytes(entry: ConfigEntry, direction: str) -> int:
+    """Assumed average frame size for one direction, 0 when off.
+
+    ``direction`` is ``"tx"`` or ``"rx"``. The single legacy key is used as a
+    fallback so entries configured before the split keep working.
+    """
+    key = (
+        CONF_ASSUMED_TX_FRAME_BYTES if direction == "tx"
+        else CONF_ASSUMED_RX_FRAME_BYTES
     )
+    legacy = entry.options.get(
+        CONF_ASSUMED_FRAME_BYTES, DEFAULT_ASSUMED_FRAME_BYTES
+    )
+    return clamp_assumed_frame_bytes(entry.options.get(key, legacy))
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -85,8 +96,12 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
     # Turning the throughput estimate on or off adds or removes entities, which
     # only a reload can do; a pure interval change is applied in place.
-    was = coordinator.data.assumed_frame_bytes if coordinator.data else 0
-    now = resolve_assumed_frame_bytes(entry)
+    data = coordinator.data
+    was = max(data.assumed_tx_frame_bytes, data.assumed_rx_frame_bytes) if data else 0
+    now = max(
+        resolve_assumed_frame_bytes(entry, "tx"),
+        resolve_assumed_frame_bytes(entry, "rx"),
+    )
     if (was == 0) != (now == 0):
         _LOGGER.debug(
             "[%s] Estimated throughput toggled (%s -> %s); reloading entry",
@@ -138,5 +153,6 @@ class HoracoCoordinator(DataUpdateCoordinator[SwitchData]):
             raise UpdateFailed(f"Switch {self.scraper.ip} is unreachable")
         # Read per poll rather than cached, so editing the assumption in the
         # options flow takes effect on the next update.
-        data.assumed_frame_bytes = resolve_assumed_frame_bytes(self.entry)
+        data.assumed_tx_frame_bytes = resolve_assumed_frame_bytes(self.entry, "tx")
+        data.assumed_rx_frame_bytes = resolve_assumed_frame_bytes(self.entry, "rx")
         return data
