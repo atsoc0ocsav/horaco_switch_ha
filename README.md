@@ -282,16 +282,20 @@ change:
 - **Requests arriving back to back get dropped.** The HTTP server closes
   connections with no reply under even modest concurrency. This is normal, not a
   fault, and is the reason for the inter-request delay and the retries.
-- **Oversized frames aimed at the management IP can crash the switch.** On a
-  ZX-SWTG124AS the management stack answered ICMP up to roughly 2000 bytes and
-  refused beyond that; a do-not-fragment sweep continuing up to ~9100 bytes
-  wedged the device completely — no ICMP, no HTTP, and no frames forwarded at
-  all, with the link still showing up at layer 1. It needed a power cycle, and
-  one port did not come back up on its own afterwards. The jumbo-frame setting
-  governs the switching fabric, not the management CPU, so do not read a high
-  value there as licence to send large frames to the switch's own address.
+- **Oversized frames aimed at the management IP can crash the management CPU.**
+  On a ZX-SWTG124AS the management stack answered ICMP up to roughly 2000 bytes
+  and refused beyond that; a do-not-fragment sweep continuing up to ~9100 bytes
+  left it completely unresponsive — no ICMP, no HTTP, no ARP reply — while the
+  link still showed up at layer 1. Only a power cycle recovered it.
+- **The jumbo-frame setting is an ASIC register, not a property of the
+  management CPU.** On this Realtek RTL837x platform, forwarding and the per-port
+  maximum frame length are handled by the switch ASIC; the management firmware is
+  a small 8051 image that configures those registers and serves the web UI.
+  Reading 9216 on the jumbo page therefore says nothing about what the management
+  CPU will accept on its own IP address, and it is the CPU that dies.
 - **To test jumbo forwarding, test between two hosts on either side** of the
-  switch, so frames traverse the fabric instead of terminating on its CPU.
+  switch, so frames traverse the ASIC instead of terminating on the management
+  CPU. Pinging the switch itself tests the wrong path.
 
 ---
 
