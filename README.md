@@ -187,7 +187,26 @@ gap this integration counts and a frame-byte counter does not — exactly
 
 The same window also confirmed the **frame counters themselves agree**: this
 switch and the MikroTik differed by 1.7% on the identical link, so the TX/RX Rate
-sensors are sound independently of any assumption.
+sensors are sound independently of any assumption. A later re-measurement across
+an MTU change agreed to within 0.9%.
+
+#### The right value drifts
+
+Sampling the same link four times gave four different answers, because the
+average frame size follows whatever the traffic happens to be:
+
+| Window | Into the switch | Out of the switch |
+|---|---|---|
+| lifetime counters | 1372 B | 239 B |
+| 33 s sample | 854 B | 973 B |
+| 400 s sample | 1143 B | 251 B |
+| 22 s sample | 1258 B | 627 B |
+
+The outbound direction moved by a factor of four. A fixed assumption is therefore
+wrong most of the time, by a factor that changes as the traffic mix changes. Sample
+over a period that represents your normal load rather than a quiet minute, expect
+the estimate to be indicative rather than accurate, and do not build alerting
+thresholds on it. The TX/RX Rate sensors carry no such caveat — they are exact.
 
 Treat the estimates as what they are: named "(estimated)", carrying
 `estimated: true`, `assumed_frame_bytes` and `includes_wire_overhead` as

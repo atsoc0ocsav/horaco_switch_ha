@@ -35,7 +35,7 @@
         },
         "data_description": {
           "scan_interval": "How often to poll the switch, 10 to 300 seconds. Changes apply immediately — no restart needed.",
-          "assumed_tx_frame_bytes": "Leave at 0 to disable. The switch counts frames, not bytes, so a bit rate can only be estimated by assuming an average frame size. Measure it on the device at the other end of the link if it reports byte counters: bytes divided by packets. The two directions usually differ a lot — on a real uplink one averaged 1372 B while the other averaged 239 B — which is why they are set separately. A wrong value is wrong proportionally: assuming 1518 B where the truth was 854 B overstated the rate by 80%.",
+          "assumed_tx_frame_bytes": "Leave at 0 to disable. The switch counts frames, not bytes, so a bit rate can only be estimated by assuming an average frame size. Measure it on the device at the other end of the link if it reports byte counters: bytes divided by packets. The two directions usually differ a lot — on a real uplink one averaged 1372 B while the other averaged 239 B — which is why they are set separately. A wrong value is wrong proportionally: assuming 1518 B where the truth was 854 B overstated the rate by 80%. Note the value drifts with the traffic mix: sampling one real link four times gave 239, 251, 627 and 973 bytes in the same direction, so treat the estimate as indicative and do not alert on it.",
           "assumed_rx_frame_bytes": "Same as above, for the receive direction. Set it independently."
         }
       }
